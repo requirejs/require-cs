@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CoffeeScript Loader Plugin Demo</title>
+    <script src="lib/require.js"></script>
+    <script>
+        require({
+            baseUrl: 'lib',
+            paths: {
+                cs: '../../cs'
+            }
+        }, ['cs!main']);
+    </script>
+</head>
+<body>
+    <h1>CoffeeScript Loader Plugin Demo</h1>
+</body>
+</html>

@@ -19,7 +19,9 @@
         progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
         fetchText = function () {
             throw new Error('Environment unsupported.');
-        };
+        },
+        buildMap = [];
+
 //START COFFEESCRIPT
 CoffeeScript = (function () {
 var __MODULES = {}; function require(name) { return __MODULES[name.substring(2)]; };
@@ -4217,20 +4219,23 @@ return __MODULES['coffee-script'];
     }
 
     define({
-        CoffeeScriptVersion: '1.0.1',
-
         CoffeeScript: CoffeeScript,
 
         load: function (name, parentRequire, load, config) {
             var path = parentRequire.toUrl(name + '.coffee');
             fetchText(path, function (text) {
 
-                //transform text
+                //Transform text
                 text = toJs(name, path, text, config.CoffeeScript);
+
+                //Hold on to the transformed text if a build.
+                if (config.isBuild) {
+                    buildMap[name] = text;
+                }
 
                 load.fromText(name, text);
 
-                //give result to load. Need to wait until the module
+                //Give result to load. Need to wait until the module
                 //is fully parse, which will happen after this
                 //execution.
                 parentRequire([name], function (value) {
@@ -4239,11 +4244,13 @@ return __MODULES['coffee-script'];
             });
 
         }
-/*
-        write: function (pluginName, name, write) {
 
+        write: function (pluginName, name, write) {
+            if (name in buildMap) {
+                var text = buildMap[name];
+                write.asModule(pluginName + "!" + name, text);
+            }
         }
-*/
     });
 
 }());

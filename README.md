@@ -1,9 +1,11 @@
 # require-cs
 
 A [CoffeeScript](http://jashkenas.github.com/coffee-script/) loader plugin
-that works with module loaders like [RequireJS](http://requirejs.org),
+that may work with module loaders like [RequireJS](http://requirejs.org),
 [curl](https://github.com/unscriptable/curl) and
 [backdraft](http://bdframework.org/bdLoad/docs/bdLoad-tutorial/bdLoad-tutorial.html).
+
+It is known to work with RequireJS 0.24.0+.
 
 This loader plugin makes it easy to write your JS functionality in CoffeeScript,
 and easily use it in the browser, Node or Rhino. Plus, if you use the RequireJS

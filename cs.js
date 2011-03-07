@@ -4202,20 +4202,12 @@ return __MODULES['coffee-script'];
           return Function(CoffeeScript.compile(code, options))();
         };
         // end browser.js adapters
-    } else if (typeof process !== 'undefined') {
+    } else if (require.nodeRequire) {
+        //Only available in Node environments.
+        fs = require.nodeRequire('fs');
         fetchText = function (path, callback) {
-            callback(fs.readFile(path, 'utf8'));
+            callback(fs.readFileSync(path, 'utf8'));
         };
-    }
-
-    function toJs(name, path, text, options) {
-        //Do CoffeeScript transform here.
-        text = CoffeeScript.compile(text, options);
-
-        //Always add in the trailer that helps eval debugging.
-        text += "\r\n//@ sourceURL=" + path;
-
-        return text;
     }
 
     define({
@@ -4225,15 +4217,16 @@ return __MODULES['coffee-script'];
             var path = parentRequire.toUrl(name + '.coffee');
             fetchText(path, function (text) {
 
-                //Transform text
-                text = toJs(name, path, text, config.CoffeeScript);
+                //Do CoffeeScript transform.
+                text = CoffeeScript.compile(text, config.CoffeeScript);
 
                 //Hold on to the transformed text if a build.
                 if (config.isBuild) {
                     buildMap[name] = text;
                 }
 
-                load.fromText(name, text);
+                load.fromText(name, text +
+                             (config.isBuild ? '' : "\r\n//@ sourceURL=" + path));
 
                 //Give result to load. Need to wait until the module
                 //is fully parse, which will happen after this
@@ -4243,7 +4236,7 @@ return __MODULES['coffee-script'];
                 });
             });
 
-        }
+        },
 
         write: function (pluginName, name, write) {
             if (name in buildMap) {

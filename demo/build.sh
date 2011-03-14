@@ -1,4 +1,4 @@
 #!/bin/sh
 
-rm -rf ../demo-built
+rm -rf ../demo-build
 ../tools/requirejs/build/build.sh build.js

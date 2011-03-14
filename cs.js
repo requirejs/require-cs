@@ -4202,8 +4202,10 @@ return __MODULES['coffee-script'];
           return Function(CoffeeScript.compile(code, options))();
         };
         // end browser.js adapters
-    } else if (require.nodeRequire) {
-        //Only available in Node environments.
+    } else if (typeof process !== "undefined" &&
+               process.versions &&
+               !!process.versions.node) {
+        //Using special require.nodeRequire, something added by r.js.
         fs = require.nodeRequire('fs');
         fetchText = function (path, callback) {
             callback(fs.readFileSync(path, 'utf8'));

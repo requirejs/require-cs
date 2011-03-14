@@ -12,9 +12,14 @@ and easily use it in the browser, Node or Rhino. Plus, if you use the RequireJS
 optimizer, your CoffeeScript files can be translated to JavaScript, and inlined
 into optimized layers for fast performance.
 
+In development, it uses XMLHttpRequest to fetch the .coffee files, so you can only
+fetch files that are on the same domain as the HTML page, and most browsers place
+restrictions on using XMLHttpRequest from local file URLs, so use a web server to
+serve your .coffee files.
+
 ## Usage
 
-1) Download the latest release version of cs.js. It includes the CoffeeScript.
+1) Download the latest release version of cs.js. It includes the CoffeeScript
 implementation.
 
 2) Reference CoffeeScript files via the cs! plugin name:
@@ -34,18 +39,17 @@ That is it! If you are using define() in a module written with CoffeeScript:
     define ['cs!util'], (util) ->
         util.doSomething
 
-## All-CoffeeScript web project
+## Complete web project
 
-You can use the data-main approach to loading the main app file for your page
-so that you can code all of your project. In the HTML:
-
-    <script data-main="cs!main" src="require.js"></script>
-
-TODO: flesh out, confirm paths.
+The **demo** directory shows a complete web example. See the demo/index.html file
+as the entry point into the demo. It is not pretty but it works.
 
 # Optimizing
 
-TODO: show example that works in the optimizer.
+See **demo/build.sh** for an example build script that drives the optimizer. The
+build will generate a **demo-build** directory with the optimized files. Where
+the unoptimized demo directory will load 7 files, the optimized one only loads 2,
+and the CoffeeScript files have been converted to JavaScript.
 
 ## License
 

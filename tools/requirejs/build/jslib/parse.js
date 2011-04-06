@@ -318,29 +318,47 @@ define(['uglifyjs/index'], function (uglify) {
             call = node[1];
             args = node[2];
 
-            if (call[0] === 'name' && call[1] === 'require') {
+            if (call) {
+                if (call[0] === 'name' && call[1] === 'require') {
 
-                //It is a plain require() call.
-                config = args[0];
-                deps = args[1];
-                if (isArrayLiteral(config)) {
-                    deps = config;
-                    config = null;
+                    //It is a plain require() call.
+                    config = args[0];
+                    deps = args[1];
+                    if (isArrayLiteral(config)) {
+                        deps = config;
+                        config = null;
+                    }
+
+                    if (!deps || !validateDeps(deps)) {
+                        return null;
+                    }
+
+                    return this.callToString("require", null, null, deps);
+
+                } else if ((call[0] === 'name' && call[1] === 'define') ||
+                           (call[0] === 'dot' && call[1][1] === 'require' &&
+                            call[2] === 'def')) {
+
+                    //A define or require.def call
+                    name = args[0];
+                    deps = args[1];
+                    //Only allow define calls that match what is expected
+                    //in an AMD call:
+                    //* first arg should be string, array, function or object
+                    //* second arg optional, or array, function or object.
+                    //This helps weed out calls to a non-AMD define, but it is
+                    //not completely robust. Someone could create a define
+                    //function that still matches this shape, but this is the
+                    //best that is possible, and at least allows UglifyJS,
+                    //which does create its own internal define in one file,
+                    //to be inlined.
+                    if (((name[0] === 'string' || isArrayLiteral(name) ||
+                          name[0] === 'function' || isObjectLiteral(name))) &&
+                        (!deps || isArrayLiteral(deps) ||
+                         deps[0] === 'function' || isObjectLiteral(deps))) {
+                        return this.callToString("define", null, name, deps);
+                    }
                 }
-
-                if (!deps || !validateDeps(deps)) {
-                    return null;
-                }
-
-                return this.callToString("require", null, null, deps);
-
-            } else if ((call[0] === 'name' && call[1] === 'define') ||
-                       (call[0] === 'dot' && call[1][1] === 'require' && call[2] === 'def')) {
-
-                //A define or require.def call
-                name = args[0];
-                deps = args[1];
-                return this.callToString("define", null, name, deps);
             }
         }
 

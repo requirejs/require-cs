@@ -1,5 +1,5 @@
 /**
- * @license cs 0.1.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license cs 0.2.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/require-cs for details
  *
@@ -4217,7 +4217,7 @@ return __MODULES['coffee-script'];
             return CoffeeScript;
         },
 
-        version: '0.1.0',
+        version: '0.2.0',
 
         load: function (name, parentRequire, load, config) {
             var path = parentRequire.toUrl(name + '.coffee');

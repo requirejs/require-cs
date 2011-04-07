@@ -4213,7 +4213,9 @@ return __MODULES['coffee-script'];
     }
 
     define({
-        CoffeeScript: CoffeeScript,
+        get: function () {
+            return CoffeeScript;
+        },
 
         version: '0.1.0',
 

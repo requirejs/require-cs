@@ -40,7 +40,7 @@ var require, define;
         useInteractive = false,
         req, cfg = {}, currentlyAddingScript, s, head, baseElement, scripts, script,
         src, subPath, mainScript, dataMain, i, scrollIntervalId, setReadyState, ctx,
-        jQueryCheck;
+        jQueryCheck, checkLoadedTimeoutId;
 
     function isFunction(it) {
         return ostring.call(it) === "[object Function]";
@@ -64,6 +64,16 @@ var require, define;
             }
         }
         return req;
+    }
+
+    /**
+     * Constructs an error with a pointer to an URL with more information.
+     * @param {String} id the error ID that maps to an ID on a web page.
+     * @param {String} message human readable error.
+     * @returns {Error}
+     */
+    function makeError(id, msg) {
+        return new Error(msg + '\nhttp://requirejs.org/docs/errors.html#' + id);
     }
 
     /**
@@ -91,12 +101,11 @@ var require, define;
             pkgs[pkgObj.name] = {
                 name: pkgObj.name,
                 location: location || pkgObj.name,
-                lib: pkgObj.lib || "lib",
                 //Remove leading dot in main, so main paths are normalized,
                 //and remove any trailing .js, since different package
                 //envs have different conventions: some use a module name,
                 //some use a file name.
-                main: (pkgObj.main || "lib/main")
+                main: (pkgObj.main || "main")
                       .replace(currDirRegExp, '')
                       .replace(jsSuffixRegExp, '')
             };
@@ -288,9 +297,9 @@ var require, define;
                     if (req.toModuleUrl) {
                         //Special logic required for a particular engine,
                         //like Node.
-                        url = req.toModuleUrl(context, name, parentModuleMap);
+                        url = req.toModuleUrl(context, normalizedName, parentModuleMap);
                     } else {
-                        url = context.nameToUrl(name, null, parentModuleMap);
+                        url = context.nameToUrl(normalizedName, null, parentModuleMap);
                     }
 
                     //Store the URL mapping for later.
@@ -807,15 +816,19 @@ var require, define;
             }
             if (expired && noLoads) {
                 //If wait time expired, throw error of unloaded modules.
-                err = new Error("require.js load timeout for modules: " + noLoads);
+                err = makeError("timeout", "Load timeout for modules: " + noLoads);
                 err.requireType = "timeout";
                 err.requireModules = noLoads;
                 return req.onError(err);
             }
             if (stillLoading || context.scriptCount) {
-                //Something is still waiting to load. Wait for it.
-                if (isBrowser || isWebWorker) {
-                    setTimeout(checkLoaded, 50);
+                //Something is still waiting to load. Wait for it, but only
+                //if a timeout is not already in effect.
+                if ((isBrowser || isWebWorker) && !checkLoadedTimeoutId) {
+                    checkLoadedTimeoutId = setTimeout(function () {
+                        checkLoadedTimeoutId = 0;
+                        checkLoaded();
+                    }, 50);
                 }
                 return undefined;
             }
@@ -918,7 +931,8 @@ var require, define;
             }
 
             var pluginName = dep.prefix,
-                fullName = dep.fullName;
+                fullName = dep.fullName,
+                urlFetched = context.urlFetched;
 
             //Do not bother if the dependency has already been specified.
             if (specified[fullName] || loaded[fullName]) {
@@ -959,7 +973,10 @@ var require, define;
                     pluginsQueue[pluginName].push(dep);
                 }
             } else {
-                req.load(context, fullName, dep.url);
+                if (!urlFetched[dep.url]) {
+                    req.load(context, fullName, dep.url);
+                    urlFetched[dep.url] = true;
+                }
             }
         }
 
@@ -983,7 +1000,7 @@ var require, define;
             while (defQueue.length) {
                 args = defQueue.shift();
                 if (args[0] === null) {
-                    return req.onError(new Error('Mismatched anonymous require.def modules'));
+                    return req.onError(makeError('mismatch', 'Mismatched anonymous define() module: ' + args[args.length - 1]));
                 } else {
                     callDefMain(args);
                 }
@@ -1163,7 +1180,7 @@ var require, define;
 
                     ret = defined[moduleMap.fullName];
                     if (ret === undefined) {
-                        return req.onError(new Error("require: module name '" +
+                        return req.onError(makeError("notloaded", "Module name '" +
                                     moduleMap.fullName +
                                     "' has not been loaded yet for context: " +
                                     contextName));
@@ -1307,7 +1324,7 @@ var require, define;
                 } else {
 
                     //Normalize module name if have a base relative module name to work from.
-                    moduleName = normalize(moduleName, relModuleMap);
+                    moduleName = normalize(moduleName, relModuleMap && relModuleMap.fullName);
 
                     //If a colon is in the URL, it indicates a protocol is used and it is just
                     //an URL to a file, or if it starts with a slash or ends with .js, it is just a plain file.
@@ -1337,7 +1354,7 @@ var require, define;
                                 if (moduleName === pkg.name) {
                                     pkgPath = pkg.location + '/' + pkg.main;
                                 } else {
-                                    pkgPath = pkg.location + '/' + pkg.lib;
+                                    pkgPath = pkg.location;
                                 }
                                 syms.splice(0, i, pkgPath);
                                 break;
@@ -1457,7 +1474,6 @@ var require, define;
      */
     req.load = function (context, moduleName, url) {
         var contextName = context.contextName,
-            urlFetched = context.urlFetched,
             loaded = context.loaded;
         isDone = false;
 
@@ -1466,18 +1482,15 @@ var require, define;
             loaded[moduleName] = false;
         }
 
-        if (!urlFetched[url]) {
-            context.scriptCount += 1;
-            req.attach(url, contextName, moduleName);
-            urlFetched[url] = true;
+        context.scriptCount += 1;
+        req.attach(url, contextName, moduleName);
 
-            //If tracking a jQuery, then make sure its readyWait
-            //is incremented to prevent its ready callbacks from
-            //triggering too soon.
-            if (context.jQuery && !context.jQueryIncremented) {
-                context.jQuery.readyWait += 1;
-                context.jQueryIncremented = true;
-            }
+        //If tracking a jQuery, then make sure its readyWait
+        //is incremented to prevent its ready callbacks from
+        //triggering too soon.
+        if (context.jQuery && !context.jQueryIncremented) {
+            context.jQuery.readyWait += 1;
+            context.jQueryIncremented = true;
         }
     };
 
@@ -1549,7 +1562,7 @@ var require, define;
         if (useInteractive) {
             node = currentlyAddingScript || getInteractiveScript();
             if (!node) {
-                return req.onError(new Error("ERROR: No matching script interactive for " + callback));
+                return req.onError(makeError("interactive", "No matching script interactive for " + callback));
             }
             if (!name) {
                 name = node.getAttribute("data-requiremodule");

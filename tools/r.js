@@ -1,13 +1,14 @@
 /**
- * @license r.js 0.30.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 0.24.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
 
 /*
  * This is a bootstrap script to allow running RequireJS in the command line
- * in either a Java/Rhino or Node environment. It is best to call this script
- * via the x script that is a sibling to it.
+ * in either a Java/Rhino or Node environment. It is modified by the top-level
+ * dist.js file to inject other files to completely enable this file. It is
+ * the shell of the r.js file.
  */
 
 /*jslint strict: false, evil: true */
@@ -18,7 +19,7 @@ var require, define;
 (function (console, args, readFileFunc) {
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire, exists,
-        version = '0.30.0',
+        version = '0.24.0+',
         jsSuffixRegExp = /\.js$/,
         //Indicates so build/build.js that the modules for the optimizer
         //are built-in.
@@ -136,7 +137,7 @@ var require, define;
         useInteractive = false,
         req, cfg = {}, currentlyAddingScript, s, head, baseElement, scripts, script,
         src, subPath, mainScript, dataMain, i, scrollIntervalId, setReadyState, ctx,
-        jQueryCheck;
+        jQueryCheck, checkLoadedTimeoutId;
 
     function isFunction(it) {
         return ostring.call(it) === "[object Function]";
@@ -160,6 +161,16 @@ var require, define;
             }
         }
         return req;
+    }
+
+    /**
+     * Constructs an error with a pointer to an URL with more information.
+     * @param {String} id the error ID that maps to an ID on a web page.
+     * @param {String} message human readable error.
+     * @returns {Error}
+     */
+    function makeError(id, msg) {
+        return new Error(msg + '\nhttp://requirejs.org/docs/errors.html#' + id);
     }
 
     /**
@@ -187,12 +198,11 @@ var require, define;
             pkgs[pkgObj.name] = {
                 name: pkgObj.name,
                 location: location || pkgObj.name,
-                lib: pkgObj.lib || "lib",
                 //Remove leading dot in main, so main paths are normalized,
                 //and remove any trailing .js, since different package
                 //envs have different conventions: some use a module name,
                 //some use a file name.
-                main: (pkgObj.main || "lib/main")
+                main: (pkgObj.main || "main")
                       .replace(currDirRegExp, '')
                       .replace(jsSuffixRegExp, '')
             };
@@ -384,9 +394,9 @@ var require, define;
                     if (req.toModuleUrl) {
                         //Special logic required for a particular engine,
                         //like Node.
-                        url = req.toModuleUrl(context, name, parentModuleMap);
+                        url = req.toModuleUrl(context, normalizedName, parentModuleMap);
                     } else {
-                        url = context.nameToUrl(name, null, parentModuleMap);
+                        url = context.nameToUrl(normalizedName, null, parentModuleMap);
                     }
 
                     //Store the URL mapping for later.
@@ -903,15 +913,19 @@ var require, define;
             }
             if (expired && noLoads) {
                 //If wait time expired, throw error of unloaded modules.
-                err = new Error("require.js load timeout for modules: " + noLoads);
+                err = makeError("timeout", "Load timeout for modules: " + noLoads);
                 err.requireType = "timeout";
                 err.requireModules = noLoads;
                 return req.onError(err);
             }
             if (stillLoading || context.scriptCount) {
-                //Something is still waiting to load. Wait for it.
-                if (isBrowser || isWebWorker) {
-                    setTimeout(checkLoaded, 50);
+                //Something is still waiting to load. Wait for it, but only
+                //if a timeout is not already in effect.
+                if ((isBrowser || isWebWorker) && !checkLoadedTimeoutId) {
+                    checkLoadedTimeoutId = setTimeout(function () {
+                        checkLoadedTimeoutId = 0;
+                        checkLoaded();
+                    }, 50);
                 }
                 return undefined;
             }
@@ -1014,7 +1028,8 @@ var require, define;
             }
 
             var pluginName = dep.prefix,
-                fullName = dep.fullName;
+                fullName = dep.fullName,
+                urlFetched = context.urlFetched;
 
             //Do not bother if the dependency has already been specified.
             if (specified[fullName] || loaded[fullName]) {
@@ -1055,7 +1070,10 @@ var require, define;
                     pluginsQueue[pluginName].push(dep);
                 }
             } else {
-                req.load(context, fullName, dep.url);
+                if (!urlFetched[dep.url]) {
+                    req.load(context, fullName, dep.url);
+                    urlFetched[dep.url] = true;
+                }
             }
         }
 
@@ -1079,7 +1097,7 @@ var require, define;
             while (defQueue.length) {
                 args = defQueue.shift();
                 if (args[0] === null) {
-                    return req.onError(new Error('Mismatched anonymous require.def modules'));
+                    return req.onError(makeError('mismatch', 'Mismatched anonymous define() module: ' + args[args.length - 1]));
                 } else {
                     callDefMain(args);
                 }
@@ -1259,7 +1277,7 @@ var require, define;
 
                     ret = defined[moduleMap.fullName];
                     if (ret === undefined) {
-                        return req.onError(new Error("require: module name '" +
+                        return req.onError(makeError("notloaded", "Module name '" +
                                     moduleMap.fullName +
                                     "' has not been loaded yet for context: " +
                                     contextName));
@@ -1403,7 +1421,7 @@ var require, define;
                 } else {
 
                     //Normalize module name if have a base relative module name to work from.
-                    moduleName = normalize(moduleName, relModuleMap);
+                    moduleName = normalize(moduleName, relModuleMap && relModuleMap.fullName);
 
                     //If a colon is in the URL, it indicates a protocol is used and it is just
                     //an URL to a file, or if it starts with a slash or ends with .js, it is just a plain file.
@@ -1433,7 +1451,7 @@ var require, define;
                                 if (moduleName === pkg.name) {
                                     pkgPath = pkg.location + '/' + pkg.main;
                                 } else {
-                                    pkgPath = pkg.location + '/' + pkg.lib;
+                                    pkgPath = pkg.location;
                                 }
                                 syms.splice(0, i, pkgPath);
                                 break;
@@ -1553,7 +1571,6 @@ var require, define;
      */
     req.load = function (context, moduleName, url) {
         var contextName = context.contextName,
-            urlFetched = context.urlFetched,
             loaded = context.loaded;
         isDone = false;
 
@@ -1562,18 +1579,15 @@ var require, define;
             loaded[moduleName] = false;
         }
 
-        if (!urlFetched[url]) {
-            context.scriptCount += 1;
-            req.attach(url, contextName, moduleName);
-            urlFetched[url] = true;
+        context.scriptCount += 1;
+        req.attach(url, contextName, moduleName);
 
-            //If tracking a jQuery, then make sure its readyWait
-            //is incremented to prevent its ready callbacks from
-            //triggering too soon.
-            if (context.jQuery && !context.jQueryIncremented) {
-                context.jQuery.readyWait += 1;
-                context.jQueryIncremented = true;
-            }
+        //If tracking a jQuery, then make sure its readyWait
+        //is incremented to prevent its ready callbacks from
+        //triggering too soon.
+        if (context.jQuery && !context.jQueryIncremented) {
+            context.jQuery.readyWait += 1;
+            context.jQueryIncremented = true;
         }
     };
 
@@ -1645,7 +1659,7 @@ var require, define;
         if (useInteractive) {
             node = currentlyAddingScript || getInteractiveScript();
             if (!node) {
-                return req.onError(new Error("ERROR: No matching script interactive for " + callback));
+                return req.onError(makeError("interactive", "No matching script interactive for " + callback));
             }
             if (!name) {
                 name = node.getAttribute("data-requiremodule");
@@ -2125,9 +2139,11 @@ var require, define;
         fileName = 'main.js';
     }
 
-    if (commandOption === 'o') {
-        //Do the optimizer work.
-
+    /**
+     * Loads the library files that can be used for the optimizer, or for other
+     * tasks.
+     */
+    function loadLib() {
         /**
  * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
@@ -6255,7 +6271,7 @@ if(env === 'rhino') {
  * see: http://github.com/jrburke/requirejs for details
  */
 
-/*jslint strict: false */
+/*jslint strict: false, plusplus: false */
 /*global define: false, java: false, Packages: false */
 
 define('rhino/optimize', ['logger'], function (logger) {
@@ -6313,7 +6329,8 @@ define('rhino/optimize', ['logger'], function (logger) {
                 //Set up source input
                 jsSourceFile = closurefromCode(String(fileName), String(fileContents)),
                 options, option, FLAG_compilation_level, compiler,
-                Compiler = Packages.com.google.javascript.jscomp.Compiler;
+                Compiler = Packages.com.google.javascript.jscomp.Compiler,
+                result;
 
             logger.trace("Minifying file: " + fileName);
 
@@ -6334,7 +6351,12 @@ define('rhino/optimize', ['logger'], function (logger) {
             //Trigger the compiler
             Compiler.setLoggingLevel(Packages.java.util.logging.Level[config.loggingLevel || 'WARNING']);
             compiler = new Compiler();
-            compiler.compile(externSourceFile, jsSourceFile, options);
+
+            result = compiler.compile(externSourceFile, jsSourceFile, options);
+            if (!result.success) {
+                throw new Error("Closure Compiler compilation failed");
+            }
+
             return compiler.toSource();
         }
     };
@@ -6918,6 +6940,158 @@ function (file,           pragma,   parse) {
     };
 });
 /**
+ * @license RequireJS Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * Available via the MIT or new BSD license.
+ * see: http://github.com/jrburke/requirejs for details
+ */
+
+/*jslint plusplus: false, regexp: false, strict: false */
+/*global define: false, console: false */
+
+define('commonJs', ['env!env/file', 'uglifyjs/index'], function (file, uglify) {
+    var commonJs = {
+        depRegExp: /require\s*\(\s*["']([\w-_\.\/]+)["']\s*\)/g,
+
+        //Set this to false in non-rhino environments. If rhino, then it uses
+        //rhino's decompiler to remove comments before looking for require() calls,
+        //otherwise, it will use a crude regexp approach to remove comments. The
+        //rhino way is more robust, but he regexp is more portable across environments.
+        useRhino: true,
+
+        //Set to false if you do not want this file to log. Useful in environments
+        //like node where you want the work to happen without noise.
+        useLog: true,
+
+        convertDir: function (commonJsPath, savePath) {
+            var fileList, i,
+                jsFileRegExp = /\.js$/,
+                fileName, convertedFileName, fileContents;
+
+            //Get list of files to convert.
+            fileList = file.getFilteredFileList(commonJsPath, /\w/, true);
+
+            //Normalize on front slashes and make sure the paths do not end in a slash.
+            commonJsPath = commonJsPath.replace(/\\/g, "/");
+            savePath = savePath.replace(/\\/g, "/");
+            if (commonJsPath.charAt(commonJsPath.length - 1) === "/") {
+                commonJsPath = commonJsPath.substring(0, commonJsPath.length - 1);
+            }
+            if (savePath.charAt(savePath.length - 1) === "/") {
+                savePath = savePath.substring(0, savePath.length - 1);
+            }
+
+            //Cycle through all the JS files and convert them.
+            if (!fileList || !fileList.length) {
+                if (commonJs.useLog) {
+                    if (commonJsPath === "convert") {
+                        //A request just to convert one file.
+                        console.log('\n\n' + commonJs.convert(savePath, file.readFile(savePath)));
+                    } else {
+                        console.log("No files to convert in directory: " + commonJsPath);
+                    }
+                }
+            } else {
+                for (i = 0; (fileName = fileList[i]); i++) {
+                    convertedFileName = fileName.replace(commonJsPath, savePath);
+
+                    //Handle JS files.
+                    if (jsFileRegExp.test(fileName)) {
+                        fileContents = file.readFile(fileName);
+                        fileContents = commonJs.convert(fileName, fileContents);
+                        file.saveUtf8File(convertedFileName, fileContents);
+                    } else {
+                        //Just copy the file over.
+                        file.copyFile(fileName, convertedFileName, true);
+                    }
+                }
+            }
+        },
+
+        /**
+         * Removes the comments from a string.
+         *
+         * @param {String} fileContents
+         * @param {String} fileName mostly used for informative reasons if an error.
+         *
+         * @returns {String} a string of JS with comments removed.
+         */
+        removeComments: function (fileContents, fileName) {
+            //Uglify's ast generation removes comments, so just convert to ast,
+            //then back to source code to get rid of comments.
+            return uglify.uglify.gen_code(uglify.parser.parse(fileContents), true);
+        },
+
+        /**
+         * Regexp for testing if there is already a require.def call in the file,
+         * in which case do not try to convert it.
+         */
+        defRegExp: /(require\s*\.\s*def|define)\s*\(/,
+
+        /**
+         * Regexp for testing if there is a require([]) or require(function(){})
+         * call, indicating the file is already in requirejs syntax.
+         */
+        rjsRegExp: /require\s*\(\s*(\[|function)/,
+
+        /**
+         * Does the actual file conversion.
+         *
+         * @param {String} fileName the name of the file.
+         *
+         * @param {String} fileContents the contents of a file :)
+         *
+         * @param {Boolean} skipDeps if true, require("") dependencies
+         * will not be searched, but the contents will just be wrapped in the
+         * standard require, exports, module dependencies. Only usable in sync
+         * environments like Node where the require("") calls can be resolved on
+         * the fly.
+         *
+         * @returns {String} the converted contents
+         */
+        convert: function (fileName, fileContents, skipDeps) {
+            //Strip out comments.
+            try {
+                var deps = [], depName, match,
+                    //Remove comments
+                    tempContents = commonJs.removeComments(fileContents, fileName);
+
+                //First see if the module is not already RequireJS-formatted.
+                if (commonJs.defRegExp.test(tempContents) || commonJs.rjsRegExp.test(tempContents)) {
+                    return fileContents;
+                }
+
+                //Reset the regexp to start at beginning of file. Do this
+                //since the regexp is reused across files.
+                commonJs.depRegExp.lastIndex = 0;
+
+                if (!skipDeps) {
+                    //Find dependencies in the code that was not in comments.
+                    while ((match = commonJs.depRegExp.exec(tempContents))) {
+                        depName = match[1];
+                        if (depName) {
+                            deps.push('"' + depName + '"');
+                        }
+                    }
+                }
+
+                //Construct the wrapper boilerplate.
+                fileContents = 'define(["require", "exports", "module"' +
+                       (deps.length ? ', ' + deps.join(",") : '') + '], ' +
+                       'function(require, exports, module) {\n' +
+                       fileContents +
+                       '\n});\n';
+            } catch (e) {
+                console.log("COULD NOT CONVERT: " + fileName + ", so skipping it. Error was: " + e);
+                return fileContents;
+            }
+
+            return fileContents;
+        }
+    };
+
+    return commonJs;
+});
+/**
  * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
@@ -6944,13 +7118,27 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             isBuild: true
         };
 
+    /**
+     * If the path looks like an URL, throw an error. This is to prevent
+     * people from using URLs with protocols in the build config, since
+     * the optimizer is not set up to do network access.
+     */
+    function disallowUrls(path) {
+        if (path.indexOf(':') !== -1) {
+            throw new Error('Path is not supported: ' + path +
+                            '\nOptimizer can only handle' +
+                            ' local paths. Download the locally if necessary' +
+                            ' and update the config to use a local path.');
+        }
+    }
+
     function endsWithSlash(dirName) {
         if (dirName.charAt(dirName.length - 1) !== "/") {
             dirName += "/";
         }
+        disallowUrls(dirName);
         return dirName;
     }
-
 
     /**
      * Main API entry point into the build. The args argument can either be
@@ -7127,6 +7315,13 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             }
         }
 
+        //Run CSS optimizations before doing JS module tracing, to allow
+        //things like text loader plugins loading CSS to get the optimized
+        //CSS.
+        if (config.optimizeCss && config.optimizeCss !== "none") {
+            optimize.css(config.dir, config);
+        }
+
         if (modules) {
             //For each module layer, call require to calculate dependencies.
             modules.forEach(function (module) {
@@ -7193,11 +7388,6 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             fileNames = file.getFilteredFileList(config.dir, /\.js$/, true);
             for (i = 0; (fileName = fileNames[i]); i++) {
                 optimize.jsFile(fileName, fileName, config);
-            }
-
-            //CSS optimizations
-            if (config.optimizeCss && config.optimizeCss !== "none") {
-                optimize.css(config.dir, config);
             }
 
             //All module layers are done, write out the build.txt file.
@@ -7324,7 +7514,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             buildFileContents = file.readFile(buildFile);
             try {
                 buildFileConfig = eval("(" + buildFileContents + ")");
-            } catch(e) {
+            } catch (e) {
                 throw new Error("Build file " + buildFile + " is malformed: " + e);
             }
             lang.mixin(config, buildFileConfig, true);
@@ -7406,6 +7596,15 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
                 }
 
                 config[prop] = endsWithSlash(config[prop]);
+            }
+        }
+
+        //Do not allow URLs for paths resources.
+        if (config.paths) {
+            for (prop in config.paths) {
+                if (config.paths.hasOwnProperty(prop)) {
+                    disallowUrls(config.paths[prop]);
+                }
             }
         }
 
@@ -7642,18 +7841,20 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
 
     return build;
 });
-/**
+
+    }
+
+    if (commandOption === 'o') {
+        //Do the optimizer work.
+        loadLib();
+
+        /**
  * @license Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
 
 /*
- * Use the .sh or .bat build scripts to run this script. General use:
- * executingEnv build.js directory/containing/build.js/ profile.build.js
- *
- * General use:
- *
  * Create a build.js file that has the build options you want and pass that
  * build file to this file to do the build. See example.build.js for more information.
  */
@@ -7693,21 +7894,32 @@ function (args,            build) {
 });
 
 
-        //END OPTIMIZER
-
-        //If fileName does not a command line arg to
-        //the build, then open it as a build profile.
-        if (fileName && fileName.indexOf('=') === -1) {
-            if (exists(fileName)) {
-                exec(readFile(fileName), fileName);
-            } else {
-                showHelp();
-            }
-        }
     } else if (commandOption === 'v') {
         console.log('r.js: ' + version + ', RequireJS: ' + require.version);
+    } else if (commandOption === 'convert') {
+        loadLib();
+
+        require(['env!env/args', 'commonJs', 'env!env/print'],
+        function (args,           commonJs,   print) {
+
+            var srcDir, outDir;
+            srcDir = args[0];
+            outDir = args[1];
+
+            if (!srcDir || !outDir) {
+                print('Usage: path/to/commonjs/modules output/dir');
+                return;
+            }
+
+            commonJs.convertDir(args[0], args[1]);
+        });
     } else {
         //Just run an app
+
+        //Load the bundled libraries for use in the app.
+        if (commandOption === 'lib') {
+            loadLib();
+        }
 
         //Use the file name's directory as the baseUrl if available.
         dir = fileName.replace(/\\/g, '/');

@@ -4231,8 +4231,15 @@ return __MODULES['coffee-script'];
                     buildMap[name] = text;
                 }
 
-                load.fromText(name, text +
-                             (config.isBuild ? '' : "\r\n//@ sourceURL=" + path));
+                //IE with conditional comments on cannot handle the
+                //sourceURL trick, so skip it if enabled.
+                /*@if (@_jscript) @else @*/
+                if (!config.isBuild) {
+                    text += "\r\n//@ sourceURL=" + path;
+                }
+                /*@end@*/
+
+                load.fromText(name, text);
 
                 //Give result to load. Need to wait until the module
                 //is fully parse, which will happen after this

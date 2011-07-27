@@ -1,5 +1,5 @@
 /**
- * @license r.js 0.24.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists,
-        version = '0.24.0+',
+        version = '0.25.0+',
         jsSuffixRegExp = /\.js$/,
         //Indicates so build/build.js that the modules for the optimizer
         //are built-in.
@@ -103,7 +103,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.25.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -115,7 +115,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "0.25.0",
+    var version = "0.25.0+",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(["']([^'"\s]+)["']\)/g,
         currDirRegExp = /^\.\//,
@@ -342,7 +342,7 @@ var requirejs, require, define;
             var pkgName, pkgConfig;
 
             //Adjust any relative paths.
-            if (name.charAt(0) === ".") {
+            if (name && name.charAt(0) === ".") {
                 //If have a base name, try to normalize against it,
                 //otherwise, assume it is a top-level require that will
                 //be relative to baseUrl in the end.
@@ -423,7 +423,7 @@ var requirejs, require, define;
                         //it has a normalize method. To avoid possible
                         //ambiguity with relative names loaded from another
                         //plugin, use the parent's name as part of this name.
-                        normalizedName = '__$p' + parentName + '@' + name;
+                        normalizedName = '__$p' + parentName + '@' + (name || '');
                     }
                 } else {
                     normalizedName = normalize(name, parentName);
@@ -451,7 +451,7 @@ var requirejs, require, define;
                 parentMap: parentModuleMap,
                 url: url,
                 originalName: originalName,
-                fullName: prefix ? prefix + "!" + normalizedName : normalizedName
+                fullName: prefix ? prefix + "!" + (normalizedName || '') : normalizedName
             };
         }
 
@@ -1088,7 +1088,7 @@ var requirejs, require, define;
         function loadPaused(dep) {
             //Renormalize dependency if its name was waiting on a plugin
             //to load, which as since loaded.
-            if (dep.prefix && dep.name.indexOf('__$p') === 0 && defined[dep.prefix]) {
+            if (dep.prefix && dep.name && dep.name.indexOf('__$p') === 0 && defined[dep.prefix]) {
                 dep = makeModuleMap(dep.originalName, dep.parentMap);
             }
 
@@ -6871,6 +6871,26 @@ function (lang,   logger,   envOptimize,        file,           parse,
 
 define('pragma', function () {
 
+    function Temp() {}
+
+    function create(obj, mixin) {
+        Temp.prototype = obj;
+        var temp = new Temp(), prop;
+
+        //Avoid any extra memory hanging around
+        Temp.prototype = null;
+
+        if (mixin) {
+            for (prop in mixin) {
+                if (mixin.hasOwnProperty(prop) && !(prop in temp)) {
+                    temp[prop] = mixin[prop];
+                }
+            }
+        }
+
+        return temp; // Object
+    }
+
     var pragma = {
         conditionalRegExp: /(exclude|include)Start\s*\(\s*["'](\w+)["']\s*,(.*)\)/,
         useStrictRegExp: /['"]use strict['"];/g,
@@ -6883,20 +6903,38 @@ define('pragma', function () {
         /**
          * processes the fileContents for some //>> conditional statements
          */
-        process: function (fileName, fileContents, config) {
+        process: function (fileName, fileContents, config, onLifecycleName) {
             /*jslint evil: true */
             var foundIndex = -1, startIndex = 0, lineEndIndex, conditionLine,
                 matches, type, marker, condition, isTrue, endRegExp, endMatches,
-                endMarkerIndex, shouldInclude, startLength, pragmas = config.pragmas,
+                endMarkerIndex, shouldInclude, startLength, lifecycleHas,
+                lifecyclePragmas, pragmas = config.pragmas, hasConfig = config.has,
                 //Legacy arg defined to help in dojo conversion script. Remove later
                 //when dojo no longer needs conversion:
                 kwArgs = pragmas;
 
+            //Mix in a specific lifecycle scoped object, to allow targeting
+            //some pragmas/has tests to only when files are saved, or at different
+            //lifecycle events. Do not bother with kwArgs in this section, since
+            //the old dojo kwArgs were for all points in the build lifecycle.
+            if (onLifecycleName) {
+                lifecyclePragmas = config['pragmas' + onLifecycleName];
+                lifecycleHas = config['has' + onLifecycleName];
+
+                if (lifecyclePragmas) {
+                    pragmas = create(pragmas || {}, lifecyclePragmas);
+                }
+
+                if (lifecycleHas) {
+                    hasConfig = create(hasConfig || {}, lifecycleHas);
+                }
+            }
+
             //Replace has references if desired
-            if (config.has) {
+            if (hasConfig) {
                 fileContents = fileContents.replace(pragma.hasRegExp, function (match, test) {
-                    if (test in config.has) {
-                        return !!config.has[test];
+                    if (test in hasConfig) {
+                        return !!hasConfig[test];
                     }
                     return match;
                 });
@@ -7098,7 +7136,7 @@ function (file,           pragma,   parse) {
                 //Load the file contents, process for conditionals, then
                 //evaluate it.
                 contents = file.readFile(url);
-                contents = pragma.process(url, contents, context.config);
+                contents = pragma.process(url, contents, context.config, 'OnExecute');
 
                 //Find out if the file contains a require() definition. Need to know
                 //this so we can inject plugins right after it, but before they are needed,
@@ -7142,7 +7180,7 @@ function (file,           pragma,   parse) {
                     context.completeLoad(moduleName);
                 }
 
-                // remember the list of dependencies for this layer.O
+                // remember the list of dependencies for this layer.
                 layer.buildFilePaths.push(url);
             }
 
@@ -7158,7 +7196,7 @@ function (file,           pragma,   parse) {
         //This method is called when a plugin specifies a loaded value. Use
         //this to track dependencies that do not go through require.load.
         require.onPluginLoad = function (context, pluginName, name, value) {
-            var registeredName = pluginName + '!' + name;
+            var registeredName = pluginName + '!' + (name || '');
             layer.buildFilePaths.push(registeredName);
             //For plugins the real path is not knowable, use the name
             //for both module to file and file to module mappings.
@@ -7367,10 +7405,11 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
     /**
      * If the path looks like an URL, throw an error. This is to prevent
      * people from using URLs with protocols in the build config, since
-     * the optimizer is not set up to do network access.
+     * the optimizer is not set up to do network access. However, be
+     * sure to allow absolute paths on Windows, like C:\directory.
      */
     function disallowUrls(path) {
-        if (path.indexOf(':') !== -1 && path !== 'empty:') {
+        if (path.indexOf('://') !== -1 && path !== 'empty:') {
             throw new Error('Path is not supported: ' + path +
                             '\nOptimizer can only handle' +
                             ' local paths. Download the locally if necessary' +
@@ -8094,7 +8133,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
                 }
             } else {
                 //Add the contents but remove any pragmas.
-                currContents = pragma.process(path, file.readFile(path), config);
+                currContents = pragma.process(path, file.readFile(path), config, 'OnSave');
 
                 currContents = build.toTransport(moduleName, path, currContents, layer);
 

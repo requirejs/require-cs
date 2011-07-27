@@ -1,5 +1,5 @@
 /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.25.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -11,7 +11,7 @@
 var requirejs, require, define;
 (function () {
     //Change this version number for each release.
-    var version = "0.25.0",
+    var version = "0.25.0+",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(["']([^'"\s]+)["']\)/g,
         currDirRegExp = /^\.\//,
@@ -238,7 +238,7 @@ var requirejs, require, define;
             var pkgName, pkgConfig;
 
             //Adjust any relative paths.
-            if (name.charAt(0) === ".") {
+            if (name && name.charAt(0) === ".") {
                 //If have a base name, try to normalize against it,
                 //otherwise, assume it is a top-level require that will
                 //be relative to baseUrl in the end.
@@ -319,7 +319,7 @@ var requirejs, require, define;
                         //it has a normalize method. To avoid possible
                         //ambiguity with relative names loaded from another
                         //plugin, use the parent's name as part of this name.
-                        normalizedName = '__$p' + parentName + '@' + name;
+                        normalizedName = '__$p' + parentName + '@' + (name || '');
                     }
                 } else {
                     normalizedName = normalize(name, parentName);
@@ -347,7 +347,7 @@ var requirejs, require, define;
                 parentMap: parentModuleMap,
                 url: url,
                 originalName: originalName,
-                fullName: prefix ? prefix + "!" + normalizedName : normalizedName
+                fullName: prefix ? prefix + "!" + (normalizedName || '') : normalizedName
             };
         }
 
@@ -984,7 +984,7 @@ var requirejs, require, define;
         function loadPaused(dep) {
             //Renormalize dependency if its name was waiting on a plugin
             //to load, which as since loaded.
-            if (dep.prefix && dep.name.indexOf('__$p') === 0 && defined[dep.prefix]) {
+            if (dep.prefix && dep.name && dep.name.indexOf('__$p') === 0 && defined[dep.prefix]) {
                 dep = makeModuleMap(dep.originalName, dep.parentMap);
             }
 

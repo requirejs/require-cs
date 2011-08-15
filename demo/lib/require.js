@@ -13,7 +13,7 @@ var requirejs, require, define;
     //Change this version number for each release.
     var version = "0.25.0+",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
-        cjsRequireRegExp = /require\(["']([^'"\s]+)["']\)/g,
+        cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
         jsSuffixRegExp = /\.js$/,
         ostring = Object.prototype.toString,
@@ -174,7 +174,8 @@ var requirejs, require, define;
                 waitSeconds: 7,
                 baseUrl: s.baseUrl || "./",
                 paths: {},
-                pkgs: {}
+                pkgs: {},
+                catchError: {}
             },
             defQueue = [],
             specified = {
@@ -526,7 +527,7 @@ var requirejs, require, define;
         }
 
         function execManager(manager) {
-            var i, ret, waitingCallbacks, err,
+            var i, ret, waitingCallbacks, err, errFile,
                 cb = manager.callback,
                 fullName = manager.fullName,
                 args = [],
@@ -542,10 +543,14 @@ var requirejs, require, define;
                     }
                 }
 
-                try {
+                if (config.catchError.define) {
+                    try {
+                        ret = req.execCb(fullName, manager.callback, args, defined[fullName]);
+                    } catch (e) {
+                        err = e;
+                    }
+                } else {
                     ret = req.execCb(fullName, manager.callback, args, defined[fullName]);
-                } catch (e) {
-                    err = e;
                 }
 
                 if (fullName) {
@@ -584,10 +589,12 @@ var requirejs, require, define;
             }
 
             if (err) {
+                errFile = (fullName ? makeModuleMap(fullName).url : '') ||
+                           err.fileName || err.sourceURL;
                 err = makeError('defineerror', 'Error evaluating ' +
                                 'module "' + fullName + '" at location "' +
-                                (fullName ? makeModuleMap(fullName).url : '') + '":\n' +
-                                err + '\nfileName:' + (err.fileName || err.sourceURL) +
+                                errFile + '":\n' +
+                                err + '\nfileName:' + errFile +
                                 '\nlineNumber: ' + (err.lineNumber || err.line), err);
                 err.moduleName = fullName;
                 return req.onError(err);
@@ -1623,13 +1630,12 @@ var requirejs, require, define;
         //work.
         if (useInteractive) {
             node = currentlyAddingScript || getInteractiveScript();
-            if (!node) {
-                return req.onError(makeError("interactive", "No matching script interactive for " + callback));
+            if (node) {
+                if (!name) {
+                    name = node.getAttribute("data-requiremodule");
+                }
+                context = contexts[node.getAttribute("data-requirecontext")];
             }
-            if (!name) {
-                name = node.getAttribute("data-requiremodule");
-            }
-            context = contexts[node.getAttribute("data-requirecontext")];
         }
 
         //Always save off evaluating the def call until the script onload handler.

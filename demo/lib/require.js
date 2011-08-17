@@ -1,5 +1,5 @@
 /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.26.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -11,7 +11,7 @@
 var requirejs, require, define;
 (function () {
     //Change this version number for each release.
-    var version = "0.25.0+",
+    var version = "0.26.0",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -1270,7 +1270,7 @@ var requirejs, require, define;
                         resume();
                     }
                 }
-                return undefined;
+                return context.require;
             },
 
             /**
@@ -1480,6 +1480,14 @@ var requirejs, require, define;
         }
 
         return context.require(deps, callback);
+    };
+
+    /**
+     * Support require.config() to make it easier to cooperate with other
+     * AMD loaders on globally agreed names.
+     */
+    req.config = function (config) {
+        return req(config);
     };
 
     /**

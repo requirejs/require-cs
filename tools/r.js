@@ -1,5 +1,5 @@
 /**
- * @license r.js 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 0.26.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib,
-        version = '0.25.0+',
+        version = '0.26.0',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         //Used by jslib/rhino/args.js
@@ -101,7 +101,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.25.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.26.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -113,7 +113,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "0.25.0+",
+    var version = "0.26.0",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -1372,7 +1372,7 @@ var requirejs, require, define;
                         resume();
                     }
                 }
-                return undefined;
+                return context.require;
             },
 
             /**
@@ -1582,6 +1582,14 @@ var requirejs, require, define;
         }
 
         return context.require(deps, callback);
+    };
+
+    /**
+     * Support require.config() to make it easier to cooperate with other
+     * AMD loaders on globally agreed names.
+     */
+    req.config = function (config) {
+        return req(config);
     };
 
     /**
@@ -6991,8 +6999,8 @@ define('rhino/optimize', ['logger'], function (logger) {
             }
             options.prettyPrint = keepLines || options.prettyPrint;
 
-            FLAG_compilation_level = flags.Flag.value(jscomp.CompilationLevel[config.CompilationLevel || 'SIMPLE_OPTIMIZATIONS']);
-            FLAG_compilation_level.get().setOptionsForCompilationLevel(options);
+            FLAG_compilation_level = jscomp.CompilationLevel[config.CompilationLevel || 'SIMPLE_OPTIMIZATIONS'];
+            FLAG_compilation_level.setOptionsForCompilationLevel(options);
 
             //Trigger the compiler
             Compiler.setLoggingLevel(Packages.java.util.logging.Level[config.loggingLevel || 'WARNING']);
@@ -7000,10 +7008,12 @@ define('rhino/optimize', ['logger'], function (logger) {
 
             result = compiler.compile(externSourceFile, jsSourceFile, options);
             if (!result.success) {
-                throw new Error("Closure Compiler compilation failed");
+                logger.error('Cannot closure compile file: ' + fileName + '. Skipping it.');
+            } else {
+                fileContents = compiler.toSource();
             }
 
-            return compiler.toSource();
+            return fileContents;
         }
     };
 
@@ -7409,6 +7419,11 @@ function (file,           pragma,   parse) {
                 layer.buildPathMap[moduleName] = url;
                 layer.buildFileToModule[url] = moduleName;
 
+                if (moduleName in context.plugins) {
+                    //plugins need to have their source evaled as-is.
+                    context._plugins[moduleName] = true;
+                }
+
                 try {
                     if (url in cachedFileContents) {
                         contents = cachedFileContents[url];
@@ -7436,9 +7451,6 @@ function (file,           pragma,   parse) {
                                 builderName = context.normalize(pluginBuilderMatch[3], moduleName);
                                 contents = file.readFile(context.nameToUrl(builderName));
                             }
-
-                            //plugins need to have their source evaled as-is.
-                            context._plugins[moduleName] = true;
                         }
 
                         //Parse out the require and define calls.

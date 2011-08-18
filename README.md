@@ -34,10 +34,14 @@ Or, if creating a module:
         util.doSomething();
     });
 
-That is it! If you are using define() in a module written with CoffeeScript:
+If you are using define() in a module written with CoffeeScript:
 
     define ['cs!util'], (util) ->
         util.doSomething
+
+**VERY IMPORTANT**: Only define anonymous modules using CoffeeScript. Otherwise,
+the optimization work will not happen correctly -- the name of the module is changed
+to allow inlining of the translated JS content.
 
 ## Complete web project
 

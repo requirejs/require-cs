@@ -1,5 +1,5 @@
 require({
-    paths: {
-        cs: '../../cs'
-    }
+  paths: {
+    cs: '../../cs'
+  }
 }, ['cs!csmain']);

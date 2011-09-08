@@ -1,5 +1,5 @@
 /**
- * @license r.js 0.26.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 0.26.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib,
-        version = '0.26.0',
+        version = '0.26.0+',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         //Used by jslib/rhino/args.js
@@ -101,11 +101,11 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.26.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.26.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
-/*jslint strict: false, plusplus: false */
+/*jslint strict: false, plusplus: false, sub: true */
 /*global window: false, navigator: false, document: false, importScripts: false,
   jQuery: false, clearInterval: false, setInterval: false, self: false,
   setTimeout: false, opera: false */
@@ -113,7 +113,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "0.26.0",
+    var version = "0.26.0+",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -133,7 +133,6 @@ var requirejs, require, define;
         defContextName = "_",
         //Oh the tragedy, detecting opera. See the usage of isOpera for reason.
         isOpera = typeof opera !== "undefined" && opera.toString() === "[object Opera]",
-        reqWaitIdPrefix = "_r@@",
         empty = {},
         contexts = {},
         globalDefQueue = [],
@@ -290,12 +289,11 @@ var requirejs, require, define;
             loaded = {},
             waiting = {},
             waitAry = [],
-            waitIdCounter = 0,
+            urlFetched = {},
+            managerCounter = 0,
             managerCallbacks = {},
             plugins = {},
-            pluginsQueue = {},
-            resumeDepth = 0,
-            normalizedWaiting = {};
+            resumeDepth = 0;
 
         /**
          * Trims the . and .. from an array of path segments.
@@ -406,41 +404,26 @@ var requirejs, require, define;
             if (name) {
                 if (prefix) {
                     pluginModule = defined[prefix];
-                    if (pluginModule) {
-                        //Plugin is loaded, use its normalize method, otherwise,
-                        //normalize name as usual.
-                        if (pluginModule.normalize) {
-                            normalizedName = pluginModule.normalize(name, function (name) {
-                                return normalize(name, parentName);
-                            });
-                        } else {
-                            normalizedName = normalize(name, parentName);
-                        }
+                    if (pluginModule && pluginModule.normalize) {
+                        //Plugin is loaded, use its normalize method.
+                        normalizedName = pluginModule.normalize(name, function (name) {
+                            return normalize(name, parentName);
+                        });
                     } else {
-                        //Plugin is not loaded yet, so do not normalize
-                        //the name, wait for plugin to load to see if
-                        //it has a normalize method. To avoid possible
-                        //ambiguity with relative names loaded from another
-                        //plugin, use the parent's name as part of this name.
-                        normalizedName = '__$p' + parentName + '@' + (name || '');
+                        normalizedName = normalize(name, parentName);
                     }
                 } else {
+                    //A regular module.
                     normalizedName = normalize(name, parentName);
-                }
 
-                url = urlMap[normalizedName];
-                if (!url) {
-                    //Calculate url for the module, if it has a name.
-                    if (req.toModuleUrl) {
-                        //Special logic required for a particular engine,
-                        //like Node.
-                        url = req.toModuleUrl(context, normalizedName, parentModuleMap);
-                    } else {
+                    url = urlMap[normalizedName];
+                    if (!url) {
+                        //Calculate url for the module, if it has a name.
                         url = context.nameToUrl(normalizedName, null, parentModuleMap);
-                    }
 
-                    //Store the URL mapping for later.
-                    urlMap[normalizedName] = url;
+                        //Store the URL mapping for later.
+                        urlMap[normalizedName] = url;
+                    }
                 }
             }
 
@@ -475,23 +458,12 @@ var requirejs, require, define;
             return priorityDone;
         }
 
-        /**
-         * Helper function that creates a setExports function for a "module"
-         * CommonJS dependency. Do this here to avoid creating a closure that
-         * is part of a loop.
-         */
-        function makeSetExports(moduleObj) {
-            return function (exports) {
-                moduleObj.exports = exports;
-            };
-        }
-
         function makeContextModuleFunc(func, relModuleMap, enableBuildCallback) {
             return function () {
                 //A version of a require function that passes a moduleName
                 //value for items that may need to
                 //look up paths relative to the moduleName
-                var args = [].concat(aps.call(arguments, 0)), lastArg;
+                var args = aps.call(arguments, 0), lastArg;
                 if (enableBuildCallback &&
                     isFunction((lastArg = args[args.length - 1]))) {
                     lastArg.__requireJsBuild = true;
@@ -518,133 +490,28 @@ var requirejs, require, define;
                 ready: req.ready,
                 isBrowser: req.isBrowser
             });
-            //Something used by node.
-            if (req.paths) {
-                modRequire.paths = req.paths;
-            }
             return modRequire;
-        }
-
-        /**
-         * Used to update the normalized name for plugin-based dependencies
-         * after a plugin loads, since it can have its own normalization structure.
-         * @param {String} pluginName the normalized plugin module name.
-         */
-        function updateNormalizedNames(pluginName) {
-
-            var oldFullName, oldModuleMap, moduleMap, fullName, callbacks,
-                i, j, k, depArray, existingCallbacks,
-                maps = normalizedWaiting[pluginName];
-
-            if (maps) {
-                for (i = 0; (oldModuleMap = maps[i]); i++) {
-                    oldFullName = oldModuleMap.fullName;
-                    moduleMap = makeModuleMap(oldModuleMap.originalName, oldModuleMap.parentMap);
-                    fullName = moduleMap.fullName;
-                    //Callbacks could be undefined if the same plugin!name was
-                    //required twice in a row, so use empty array in that case.
-                    callbacks = managerCallbacks[oldFullName] || [];
-                    existingCallbacks = managerCallbacks[fullName];
-
-                    if (fullName !== oldFullName) {
-                        //Update the specified object, but only if it is already
-                        //in there. In sync environments, it may not be yet.
-                        if (oldFullName in specified) {
-                            delete specified[oldFullName];
-                            specified[fullName] = true;
-                        }
-
-                        //Update managerCallbacks to use the correct normalized name.
-                        //If there are already callbacks for the normalized name,
-                        //just add to them.
-                        if (existingCallbacks) {
-                            managerCallbacks[fullName] = existingCallbacks.concat(callbacks);
-                        } else {
-                            managerCallbacks[fullName] = callbacks;
-                        }
-                        delete managerCallbacks[oldFullName];
-
-                        //In each manager callback, update the normalized name in the depArray.
-                        for (j = 0; j < callbacks.length; j++) {
-                            depArray = callbacks[j].depArray;
-                            for (k = 0; k < depArray.length; k++) {
-                                if (depArray[k] === oldFullName) {
-                                    depArray[k] = fullName;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            delete normalizedWaiting[pluginName];
         }
 
         /*
          * Queues a dependency for checking after the loader is out of a
          * "paused" state, for example while a script file is being loaded
          * in the browser, where it may have many modules defined in it.
-         *
-         * depName will be fully qualified, no relative . or .. path.
          */
-        function queueDependency(dep) {
-            //Make sure to load any plugin and associate the dependency
-            //with that plugin.
-            var prefix = dep.prefix,
-                fullName = dep.fullName;
-
-            //Do not bother if the depName is already in transit
-            if (specified[fullName] || fullName in defined) {
-                return;
-            }
-
-            if (prefix && !plugins[prefix]) {
-                //Queue up loading of the dependency, track it
-                //via context.plugins. Mark it as a plugin so
-                //that the build system will know to treat it
-                //special.
-                plugins[prefix] = undefined;
-
-                //Remember this dep that needs to have normaliztion done
-                //after the plugin loads.
-                (normalizedWaiting[prefix] || (normalizedWaiting[prefix] = []))
-                    .push(dep);
-
-                //Register an action to do once the plugin loads, to update
-                //all managerCallbacks to use a properly normalized module
-                //name.
-                (managerCallbacks[prefix] ||
-                (managerCallbacks[prefix] = [])).push({
-                    onDep: function (name, value) {
-                        if (name === prefix) {
-                            updateNormalizedNames(prefix);
-                        }
-                    }
-                });
-
-                queueDependency(makeModuleMap(prefix));
-            }
-
-            context.paused.push(dep);
+        function queueDependency(manager) {
+            context.paused.push(manager);
         }
 
         function execManager(manager) {
-            var i, ret, waitingCallbacks, err, errFile,
+            var i, ret, err, errFile, errModuleTree,
                 cb = manager.callback,
-                fullName = manager.fullName,
-                args = [],
-                ary = manager.depArray;
+                map = manager.map,
+                fullName = map.fullName,
+                args = manager.deps,
+                listeners = manager.listeners;
 
             //Call the callback to define the module, if necessary.
             if (cb && isFunction(cb)) {
-                //Pull out the defined dependencies and pass the ordered
-                //values to the callback.
-                if (ary) {
-                    for (i = 0; i < ary.length; i++) {
-                        args.push(manager.deps[ary[i]]);
-                    }
-                }
-
                 if (config.catchError.define) {
                     try {
                         ret = req.execCb(fullName, manager.callback, args, defined[fullName]);
@@ -676,12 +543,12 @@ var requirejs, require, define;
             }
 
             //Clean up waiting. Do this before error calls, and before
-            //calling back waitingCallbacks, so that bookkeeping is correct
+            //calling back listeners, so that bookkeeping is correct
             //in the event of an error and error is reported in correct order,
-            //since the waitingCallbacks will likely have errors if the
+            //since the listeners will likely have errors if the
             //onError function does not throw.
-            if (waiting[manager.waitId]) {
-                delete waiting[manager.waitId];
+            if (waiting[manager.id]) {
+                delete waiting[manager.id];
                 manager.isDone = true;
                 context.waitCount -= 1;
                 if (context.waitCount === 0) {
@@ -690,68 +557,227 @@ var requirejs, require, define;
                 }
             }
 
+            //Do not need to track manager callback now that it is defined.
+            delete managerCallbacks[fullName];
+
             if (err) {
                 errFile = (fullName ? makeModuleMap(fullName).url : '') ||
                            err.fileName || err.sourceURL;
+                errModuleTree = err.moduleTree;
                 err = makeError('defineerror', 'Error evaluating ' +
                                 'module "' + fullName + '" at location "' +
                                 errFile + '":\n' +
                                 err + '\nfileName:' + errFile +
                                 '\nlineNumber: ' + (err.lineNumber || err.line), err);
                 err.moduleName = fullName;
+                err.moduleTree = errModuleTree;
                 return req.onError(err);
             }
 
-            if (fullName) {
-                //If anything was waiting for this module to be defined,
-                //notify them now.
-                waitingCallbacks = managerCallbacks[fullName];
-                if (waitingCallbacks) {
-                    for (i = 0; i < waitingCallbacks.length; i++) {
-                        waitingCallbacks[i].onDep(fullName, ret);
-                    }
-                    delete managerCallbacks[fullName];
-                }
+            //Let listeners know of this manager's value.
+            for (i = 0; (cb = listeners[i]); i++) {
+                cb(ret);
             }
 
             return undefined;
+        }
+
+        /**
+         * Helper that creates a callack function that is called when a dependency
+         * is ready, and sets the i-th dependency for the manager as the
+         * value passed to the callback generated by this function.
+         */
+        function makeArgCallback(manager, i) {
+            return function (value) {
+                //Only do the work if it has not been done
+                //already for a dependency. Cycle breaking
+                //logic in forceExec could mean this function
+                //is called more than once for a given dependency.
+                if (!manager.depDone[i]) {
+                    manager.depDone[i] = true;
+                    manager.deps[i] = value;
+                    manager.depCount -= 1;
+                    if (!manager.depCount) {
+                        //All done, execute!
+                        execManager(manager);
+                    }
+                }
+            };
+        }
+
+        function callPlugin(pluginName, depManager) {
+            var map = depManager.map,
+                fullName = map.fullName,
+                name = map.name,
+                plugin = plugins[pluginName] ||
+                        (plugins[pluginName] = defined[pluginName]),
+                load;
+
+            //No need to continue if the manager is already
+            //in the process of loading.
+            if (depManager.loading) {
+                return;
+            }
+            depManager.loading = true;
+
+            load = function (ret) {
+                //Allow the build process to register plugin-loaded dependencies.
+                if (req.onPluginLoad) {
+                    req.onPluginLoad(context, pluginName, name, ret);
+                }
+
+                depManager.callback = function () {
+                    return ret;
+                };
+                execManager(depManager);
+
+                loaded[depManager.id] = true;
+            };
+
+            //Allow plugins to load other code without having to know the
+            //context or how to "complete" the load.
+            load.fromText = function (moduleName, text) {
+                /*jslint evil: true */
+                var hasInteractive = useInteractive;
+
+                //Indicate a the module is in process of loading.
+                loaded[moduleName] = false;
+                context.scriptCount += 1;
+
+                //Turn off interactive script matching for IE for any define
+                //calls in the text, then turn it back on at the end.
+                if (hasInteractive) {
+                    useInteractive = false;
+                }
+
+                req.exec(text);
+
+                if (hasInteractive) {
+                    useInteractive = true;
+                }
+
+                //Support anonymous modules.
+                context.completeLoad(moduleName);
+            };
+
+            //No need to continue if the plugin value has already been
+            //defined by a build.
+            if (fullName in defined) {
+                load(defined[fullName]);
+            } else {
+                //Use parentName here since the plugin's name is not reliable,
+                //could be some weird string with no path that actually wants to
+                //reference the parentName's path.
+                plugin.load(name, makeRequire(map.parentMap, true), load, config);
+            }
+        }
+
+        /**
+         * Adds the manager to the waiting queue. Only fully
+         * resolved items should be in the waiting queue.
+         */
+        function addWait(manager) {
+            if (!waiting[manager.id]) {
+                waiting[manager.id] = manager;
+                waitAry.push(manager);
+                context.waitCount += 1;
+            }
+        }
+
+        /**
+         * Function added to every manager object. Created out here
+         * to avoid new function creation for each manager instance.
+         */
+        function managerAdd(cb) {
+            this.listeners.push(cb);
+        }
+
+        function getManager(map, shouldQueue) {
+            var fullName = map.fullName,
+                prefix = map.prefix,
+                plugin = prefix ? plugins[prefix] ||
+                                (plugins[prefix] = defined[prefix]) : null,
+                manager, created, pluginManager;
+
+            if (fullName) {
+                manager = managerCallbacks[fullName];
+            }
+
+            if (!manager) {
+                created = true;
+                manager = {
+                    //ID is just the full name, but if it is a plugin resource
+                    //for a plugin that has not been loaded,
+                    //then add an ID counter to it.
+                    id: (prefix && !plugin ?
+                        (managerCounter++) + '__p@:' : '') +
+                        (fullName || '__r@' + (managerCounter++)),
+                    map: map,
+                    depCount: 0,
+                    depDone: [],
+                    depCallbacks: [],
+                    deps: [],
+                    listeners: [],
+                    add: managerAdd
+                };
+
+                specified[manager.id] = true;
+
+                //Only track the manager/reuse it if this is a non-plugin
+                //resource. Also only track plugin resources once
+                //the plugin has been loaded, and so the fullName is the
+                //true normalized value.
+                if (fullName && (!prefix || plugins[prefix])) {
+                    managerCallbacks[fullName] = manager;
+                }
+            }
+
+            //If there is a plugin needed, but it is not loaded,
+            //first load the plugin, then continue on.
+            if (prefix && !plugin) {
+                pluginManager = getManager(makeModuleMap(prefix), true);
+                pluginManager.add(function (plugin) {
+                    //Create a new manager for the normalized
+                    //resource ID and have it call this manager when
+                    //done.
+                    var newMap = makeModuleMap(map.originalName, map.parentMap),
+                        normalizedManager = getManager(newMap, true);
+
+                    normalizedManager.add(function (resource) {
+                        manager.callback = function () {
+                            return resource;
+                        };
+                        execManager(manager);
+                    });
+                });
+            } else if (created && shouldQueue) {
+                //Indicate the resource is not loaded yet if it is to be
+                //queued.
+                loaded[manager.id] = false;
+                queueDependency(manager);
+                addWait(manager);
+            }
+
+            return manager;
         }
 
         function main(inName, depArray, callback, relModuleMap) {
             var moduleMap = makeModuleMap(inName, relModuleMap),
                 name = moduleMap.name,
                 fullName = moduleMap.fullName,
-                uniques = {},
-                manager = {
-                    //Use a wait ID because some entries are anon
-                    //async require calls.
-                    waitId: name || reqWaitIdPrefix + (waitIdCounter++),
-                    depCount: 0,
-                    depMax: 0,
-                    prefix: moduleMap.prefix,
-                    name: name,
-                    fullName: fullName,
-                    deps: {},
-                    depArray: depArray,
-                    callback: callback,
-                    onDep: function (depName, value) {
-                        if (!(depName in manager.deps)) {
-                            manager.deps[depName] = value;
-                            manager.depCount += 1;
-                            if (manager.depCount === manager.depMax) {
-                                //All done, execute!
-                                execManager(manager);
-                            }
-                        }
-                    }
-                },
-                i, depArg, depName, cjsMod;
+                manager = getManager(moduleMap),
+                id = manager.id,
+                deps = manager.deps,
+                i, depArg, depName, depPrefix, cjsMod;
+
+            manager.depArray = depArray;
+            manager.callback = callback;
 
             if (fullName) {
                 //If module already defined for context, or already loaded,
                 //then leave. Also leave if jQuery is registering but it does
                 //not match the desired version number in the config.
-                if (fullName in defined || loaded[fullName] === true ||
+                if (fullName in defined || loaded[id] === true ||
                     (fullName === "jquery" && config.jQuery &&
                      config.jQuery !== callback().fn.jquery)) {
                     return;
@@ -761,8 +787,8 @@ var requirejs, require, define;
                 //as part of a layer, where onScriptLoad is not fired
                 //for those cases. Do this after the inline define and
                 //dependency tracing is done.
-                specified[fullName] = true;
-                loaded[fullName] = true;
+                specified[id] = true;
+                loaded[id] = true;
 
                 //If module is jQuery set up delaying its dom ready listeners.
                 if (fullName === "jquery" && callback) {
@@ -781,6 +807,7 @@ var requirejs, require, define;
                     //Split the dependency name into plugin and name parts
                     depArg = makeModuleMap(depArg, (name ? moduleMap : relModuleMap));
                     depName = depArg.fullName;
+                    depPrefix = depArg.prefix;
 
                     //Fix the name in depArray to be just the name, since
                     //that is how it will be called back later.
@@ -788,46 +815,38 @@ var requirejs, require, define;
 
                     //Fast path CommonJS standard dependencies.
                     if (depName === "require") {
-                        manager.deps[depName] = makeRequire(moduleMap);
+                        deps[i] = makeRequire(moduleMap);
                     } else if (depName === "exports") {
                         //CommonJS module spec 1.1
-                        manager.deps[depName] = defined[fullName] = {};
+                        deps[i] = defined[fullName] = {};
                         manager.usingExports = true;
                     } else if (depName === "module") {
                         //CommonJS module spec 1.1
-                        manager.cjsModule = cjsMod = manager.deps[depName] = {
+                        manager.cjsModule = cjsMod = deps[i] = {
                             id: name,
                             uri: name ? context.nameToUrl(name, null, relModuleMap) : undefined,
                             exports: defined[fullName]
                         };
-                        cjsMod.setExports = makeSetExports(cjsMod);
                     } else if (depName in defined && !(depName in waiting)) {
                         //Module already defined, no need to wait for it.
-                        manager.deps[depName] = defined[depName];
-                    } else if (!uniques[depName]) {
-
-                        //A dynamic dependency.
-                        manager.depMax += 1;
-
-                        queueDependency(depArg);
-
-                        //Register to get notification when dependency loads.
-                        (managerCallbacks[depName] ||
-                        (managerCallbacks[depName] = [])).push(manager);
-
-                        uniques[depName] = true;
+                        deps[i] = defined[depName];
+                    } else {
+                        //Either a resource that is not loaded yet, or a plugin
+                        //resource for either a plugin that has not
+                        //loaded yet.
+                        manager.depCount += 1;
+                        manager.depCallbacks[i] = makeArgCallback(manager, i);
+                        getManager(depArg, true).add(manager.depCallbacks[i]);
                     }
                 }
             }
 
             //Do not bother tracking the manager if it is all done.
-            if (manager.depCount === manager.depMax) {
+            if (!manager.depCount) {
                 //All done, execute!
                 execManager(manager);
             } else {
-                waiting[manager.waitId] = manager;
-                waitAry.push(manager);
-                context.waitCount += 1;
+                addWait(manager);
             }
         }
 
@@ -837,10 +856,6 @@ var requirejs, require, define;
          */
         function callDefMain(args) {
             main.apply(null, args);
-            //Mark the module loaded. Must do it here in addition
-            //to doing it in define in case a script does
-            //not call define
-            loaded[args[0]] = true;
         }
 
         /**
@@ -889,9 +904,10 @@ var requirejs, require, define;
                 return undefined;
             }
 
-            var fullName = manager.fullName,
+            var fullName = manager.map.fullName,
                 depArray = manager.depArray,
-                depName, i;
+                i, depName, depManager, prefix, prefixManager, value;
+
             if (fullName) {
                 if (traced[fullName]) {
                     return defined[fullName];
@@ -900,14 +916,24 @@ var requirejs, require, define;
                 traced[fullName] = true;
             }
 
-            //forceExec all of its dependencies.
-            for (i = 0; i < depArray.length; i++) {
-                //Some array members may be null, like if a trailing comma
-                //IE, so do the explicit [i] access and check if it has a value.
-                depName = depArray[i];
-                if (depName) {
-                    if (!manager.deps[depName] && waiting[depName]) {
-                        manager.onDep(depName, forceExec(waiting[depName], traced));
+            //Trace through the dependencies.
+            if (depArray) {
+                for (i = 0; i < depArray.length; i++) {
+                    //Some array members may be null, like if a trailing comma
+                    //IE, so do the explicit [i] access and check if it has a value.
+                    depName = depArray[i];
+                    if (depName) {
+                        //First, make sure if it is a plugin resource that the
+                        //plugin is not blocked.
+                        prefix = makeModuleMap(depName).prefix;
+                        if (prefix && (prefixManager = waiting[prefix])) {
+                            forceExec(prefixManager, traced);
+                        }
+                        depManager = waiting[depName];
+                        if (depManager && !depManager.isDone && loaded[depName]) {
+                            value = forceExec(depManager, traced);
+                            manager.depCallbacks[i](value);
+                        }
                     }
                 }
             }
@@ -1001,6 +1027,11 @@ var requirejs, require, define;
                     forceExec(manager, {});
                 }
 
+                //If anything got placed in the paused queue, run it down.
+                if (context.paused.length) {
+                    resume();
+                }
+
                 //Only allow this recursion to a certain depth. Only
                 //triggered by errors in calling a module in which its
                 //modules waiting on it cannot finish loading, or some circular
@@ -1022,136 +1053,11 @@ var requirejs, require, define;
             return undefined;
         }
 
-        function callPlugin(pluginName, dep) {
-            var name = dep.name,
-                fullName = dep.fullName,
-                load;
-
-            //Do not bother if plugin is already defined or being loaded.
-            if (fullName in defined || fullName in loaded) {
-                return;
-            }
-
-            if (!plugins[pluginName]) {
-                plugins[pluginName] = defined[pluginName];
-            }
-
-            //Only set loaded to false for tracking if it has not already been set.
-            if (!loaded[fullName]) {
-                loaded[fullName] = false;
-            }
-
-            load = function (ret) {
-                //Allow the build process to register plugin-loaded dependencies.
-                if (req.onPluginLoad) {
-                    req.onPluginLoad(context, pluginName, name, ret);
-                }
-
-                execManager({
-                    prefix: dep.prefix,
-                    name: dep.name,
-                    fullName: dep.fullName,
-                    callback: function () {
-                        return ret;
-                    }
-                });
-                loaded[fullName] = true;
-            };
-
-            //Allow plugins to load other code without having to know the
-            //context or how to "complete" the load.
-            load.fromText = function (moduleName, text) {
-                /*jslint evil: true */
-                var hasInteractive = useInteractive;
-
-                //Indicate a the module is in process of loading.
-                context.loaded[moduleName] = false;
-                context.scriptCount += 1;
-
-                //Turn off interactive script matching for IE for any define
-                //calls in the text, then turn it back on at the end.
-                if (hasInteractive) {
-                    useInteractive = false;
-                }
-
-                req.exec(text);
-
-                if (hasInteractive) {
-                    useInteractive = true;
-                }
-
-                //Support anonymous modules.
-                context.completeLoad(moduleName);
-            };
-
-            //Use parentName here since the plugin's name is not reliable,
-            //could be some weird string with no path that actually wants to
-            //reference the parentName's path.
-            plugins[pluginName].load(name, makeRequire(dep.parentMap, true), load, config);
-        }
-
-        function loadPaused(dep) {
-            //Renormalize dependency if its name was waiting on a plugin
-            //to load, which as since loaded.
-            if (dep.prefix && dep.name && dep.name.indexOf('__$p') === 0 && defined[dep.prefix]) {
-                dep = makeModuleMap(dep.originalName, dep.parentMap);
-            }
-
-            var pluginName = dep.prefix,
-                fullName = dep.fullName,
-                urlFetched = context.urlFetched;
-
-            //Do not bother if the dependency has already been specified.
-            if (specified[fullName] || loaded[fullName]) {
-                return;
-            } else {
-                specified[fullName] = true;
-            }
-
-            if (pluginName) {
-                //If plugin not loaded, wait for it.
-                //set up callback list. if no list, then register
-                //managerCallback for that plugin.
-                if (defined[pluginName]) {
-                    callPlugin(pluginName, dep);
-                } else {
-                    if (!pluginsQueue[pluginName]) {
-                        pluginsQueue[pluginName] = [];
-                        (managerCallbacks[pluginName] ||
-                        (managerCallbacks[pluginName] = [])).push({
-                            onDep: function (name, value) {
-                                if (name === pluginName) {
-                                    var i, oldModuleMap, ary = pluginsQueue[pluginName];
-
-                                    //Now update all queued plugin actions.
-                                    for (i = 0; i < ary.length; i++) {
-                                        oldModuleMap = ary[i];
-                                        //Update the moduleMap since the
-                                        //module name may be normalized
-                                        //differently now.
-                                        callPlugin(pluginName,
-                                                   makeModuleMap(oldModuleMap.originalName, oldModuleMap.parentMap));
-                                    }
-                                    delete pluginsQueue[pluginName];
-                                }
-                            }
-                        });
-                    }
-                    pluginsQueue[pluginName].push(dep);
-                }
-            } else {
-                if (!urlFetched[dep.url]) {
-                    req.load(context, fullName, dep.url);
-                    urlFetched[dep.url] = true;
-                }
-            }
-        }
-
         /**
          * Resumes tracing of dependencies and then checks if everything is loaded.
          */
         resume = function () {
-            var args, i, p;
+            var manager, map, url, i, p, args, fullName;
 
             resumeDepth += 1;
 
@@ -1182,9 +1088,24 @@ var requirejs, require, define;
                     //Reset paused list
                     context.paused = [];
 
-                    for (i = 0; (args = p[i]); i++) {
-                        loadPaused(args);
+                    for (i = 0; (manager = p[i]); i++) {
+                        map = manager.map;
+                        url = map.url;
+                        fullName = map.fullName;
+
+                        //If the manager is for a plugin managed resource,
+                        //ask the plugin to load it now.
+                        if (map.prefix) {
+                            callPlugin(map.prefix, manager);
+                        } else {
+                            //Regular dependency.
+                            if (!urlFetched[url] && !loaded[fullName]) {
+                                req.load(context, fullName, url);
+                                urlFetched[url] = true;
+                            }
+                        }
                     }
+
                     //Move the start time for timeout forward.
                     context.startTime = (new Date()).getTime();
                     context.pausedCount -= p.length;
@@ -1217,7 +1138,6 @@ var requirejs, require, define;
             loaded: loaded,
             urlMap: urlMap,
             scriptCount: 0,
-            urlFetched: {},
             defined: defined,
             paused: [],
             pausedCount: 0,
@@ -1287,7 +1207,6 @@ var requirejs, require, define;
                     //Allow tracing some require calls to allow the fetching
                     //of the priority config.
                     context.requireWait = false;
-
                     //But first, call resume to register any defined modules that may
                     //be in a data-main built file before the priority config
                     //call. Also grab any waiting define calls for this context.
@@ -1359,7 +1278,11 @@ var requirejs, require, define;
                     return defined[fullName];
                 }
 
-                main(null, deps, callback, relModuleMap);
+                //Call main but only if there are dependencies or
+                //a callback to call.
+                if (deps && deps.length || callback) {
+                    main(null, deps, callback, relModuleMap);
+                }
 
                 //If the require call does not trigger anything new to load,
                 //then resume the dependency processing.
@@ -1429,11 +1352,6 @@ var requirejs, require, define;
                                     return jQuery;
                                 } : null]);
                 }
-
-                //Mark the script as loaded. Note that this can be different from a
-                //moduleName that maps to a define call. This line is important
-                //for traditional browser scripts.
-                loaded[moduleName] = true;
 
                 //If a global jQuery is defined, check for it. Need to do it here
                 //instead of main() since stock jQuery does not register as
@@ -1595,7 +1513,7 @@ var requirejs, require, define;
     /**
      * Export require as a global, but only if it does not already exist.
      */
-    if (typeof require === "undefined") {
+    if (!require) {
         require = req;
     }
 
@@ -1652,14 +1570,7 @@ var requirejs, require, define;
      * @param {Object} url the URL to the module.
      */
     req.load = function (context, moduleName, url) {
-        var loaded = context.loaded;
-
         isDone = false;
-
-        //Only set loaded to false for tracking if it has not already been set.
-        if (!loaded[moduleName]) {
-            loaded[moduleName] = false;
-        }
 
         context.scriptCount += 1;
         req.attach(url, context, moduleName);
@@ -1696,7 +1607,7 @@ var requirejs, require, define;
      * return a value to define the module corresponding to the first argument's
      * name.
      */
-    define = req.def = function (name, deps, callback) {
+    define = function (name, deps, callback) {
         var node, context;
 
         //Allow for anonymous functions
@@ -1836,7 +1747,7 @@ var requirejs, require, define;
      * @param {String} [type] optional type, defaults to text/javascript
      */
     req.attach = function (url, context, moduleName, callback, type) {
-        var node, loaded;
+        var node;
         if (isBrowser) {
             //In the browser so use a script tag
             callback = callback || req.onScriptLoad;
@@ -1902,9 +1813,6 @@ var requirejs, require, define;
             //are in play, the expectation that a build has been done so that
             //only one script needs to be loaded anyway. This may need to be
             //reevaluated if other use cases become common.
-            loaded = context.loaded;
-            loaded[moduleName] = false;
-
             importScripts(url);
 
             //Account for anonymous modules
@@ -2131,7 +2039,6 @@ var requirejs, require, define;
         require.s.isDone = false;
 
         //Indicate a the module is in process of loading.
-        context.loaded[moduleName] = false;
         context.scriptCount += 1;
 
         load(url);
@@ -2144,6 +2051,7 @@ var requirejs, require, define;
     } else if (env === 'node') {
         this.requirejsVars = {
             require: require,
+            requirejs: require,
             define: define,
             nodeRequire: nodeRequire
         };
@@ -2203,9 +2111,9 @@ var requirejs, require, define;
     //API instead of the Node API, and it is done lexically so
     //that it survives later execution.
     req.makeNodeWrapper = function (contents) {
-        return '(function (require, define) { ' +
+        return '(function (require, requirejs, define) { ' +
                 contents +
-                '\n}(requirejsVars.require, requirejsVars.define));';
+                '\n}(requirejsVars.require, requirejsVars.requirejs, requirejsVars.define));';
     };
 
     req.load = function (context, moduleName, url) {
@@ -2215,7 +2123,6 @@ var requirejs, require, define;
         req.s.isDone = false;
 
         //Indicate a the module is in process of loading.
-        context.loaded[moduleName] = false;
         context.scriptCount += 1;
 
         if (path.existsSync(url)) {
@@ -2551,6 +2458,10 @@ define('node/file', ['fs', 'path'], function (fs, path) {
             //summary: copies files from srcDir to destDir using the regExpFilter to determine if the
             //file should be copied. Returns a list file name strings of the destinations that were copied.
             regExpFilter = regExpFilter || /\w/;
+
+            //Normalize th directory names.
+            srcDir = path.normalize(srcDir);
+            destDir = path.normalize(destDir);
 
             var fileNames = file.getFilteredFileList(srcDir, regExpFilter, true),
             copiedFiles = [], i, srcFileName, destFileName;
@@ -6751,7 +6662,7 @@ define('pragma', function () {
     var pragma = {
         conditionalRegExp: /(exclude|include)Start\s*\(\s*["'](\w+)["']\s*,(.*)\)/,
         useStrictRegExp: /['"]use strict['"];/g,
-        hasRegExp: /has\s*\(\s*['"]([^'"]+)['"]\)/g,
+        hasRegExp: /has\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
         nsRegExp: /(^|[^\.])(requirejs|require|define)\s*\(/,
         apiDefRegExp: /var requirejs, require, define;/,
 
@@ -7330,6 +7241,30 @@ function (file,           pragma,   parse) {
             oldDef,
             cachedFileContents = {};
 
+
+        /** Print out some extrs info about the module tree that caused the error. **/
+        require.onError = function (err) {
+
+            var msg = '\nIn module tree:\n',
+                standardIndent = '  ',
+                tree = err.moduleTree,
+                i, j, mod;
+
+            if (tree && tree.length > 0) {
+                for (i = tree.length - 1; i > -1 && (mod = tree[i]); i--) {
+                    for (j = tree.length - i; j > -1; j--) {
+                        msg += standardIndent;
+                    }
+                    msg += mod + '\n';
+                }
+
+                err = new Error(err.toString() + msg);
+            }
+
+            throw err;
+        };
+
+
         /** Reset state for each build layer pass. */
         require._buildReset = function () {
             var oldContext = require.s.contexts._;
@@ -7377,15 +7312,15 @@ function (file,           pragma,   parse) {
                    url.indexOf('empty:') !== 0;
         };
 
-        //Override require.def to catch modules that just define an object, so that
-        //a dummy require.def call is not put in the build file for them. They do
+        //Override define() to catch modules that just define an object, so that
+        //a dummy define call is not put in the build file for them. They do
         //not end up getting defined via require.execCb, so we need to catch them
-        //at the require.def call.
-        oldDef = require.def;
+        //at the define call.
+        oldDef = define;
 
         //This function signature does not have to be exact, just match what we
         //are looking for.
-        define = require.def = function (name, obj) {
+        define = function (name, obj) {
             if (typeof name === "string") {
                 layer.modulesWithNames[name] = true;
             }
@@ -7408,7 +7343,6 @@ function (file,           pragma,   parse) {
                 url = context.config.dirBaseUrl + url;
             }
 
-            context.loaded[moduleName] = false;
             context.scriptCount += 1;
 
             //Only handle urls that can be inlined, so that means avoiding some
@@ -7435,7 +7369,7 @@ function (file,           pragma,   parse) {
 
                         //Find out if the file contains a require() definition. Need to know
                         //this so we can inject plugins right after it, but before they are needed,
-                        //and to make sure this file is first, so that require.def calls work.
+                        //and to make sure this file is first, so that define calls work.
                         //This situation mainly occurs when the build is done on top of the output
                         //of another build, where the first build may include require somewhere in it.
                         if (!layer.existingRequireUrl && parse.definesRequire(url, contents)) {
@@ -7465,15 +7399,23 @@ function (file,           pragma,   parse) {
 
                     if (contents) {
                         eval(contents);
-
-                        //Support anonymous modules.
-                        context.completeLoad(moduleName);
                     }
 
-                } catch (e) {
-                    e.fileName = url;
-                    e.lineNumber = e.line;
-                    throw e;
+                    //Need to close out completion of this module
+                    //so that listeners will get notified that it is available.
+                    try {
+                        context.completeLoad(moduleName);
+                    } catch (e) {
+                        //Track which module could not complete loading.
+                        (e.moduleTree || (e.moduleTree = [])).push(moduleName);
+                        throw e;
+                    }
+
+                } catch (eOuter) {
+                    if (!eOuter.fileName) {
+                        eOuter.fileName = url;
+                    }
+                    throw eOuter;
                 }
 
                 // remember the list of dependencies for this layer.
@@ -7604,7 +7546,7 @@ define('commonJs', ['env!env/file', 'uglifyjs/index'], function (file, uglify) {
          * Regexp for testing if there is already a require.def call in the file,
          * in which case do not try to convert it.
          */
-        defRegExp: /(require\s*\.\s*def|define)\s*\(/,
+        defRegExp: /define\s*\(/,
 
         /**
          * Regexp for testing if there is a require([]) or require(function(){})
@@ -8053,6 +7995,20 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
     };
 
     /**
+     * Converts command line args like "paths.foo=../some/path"
+     * result.paths = { foo: '../some/path' } where prop = paths,
+     * name = paths.foo and value = ../some/path, so it assumes the
+     * name=value splitting has already happened.
+     */
+    function stringDotToObj(result, prop, name, value) {
+        if (!result[prop]) {
+            result[prop] = {};
+        }
+        name = name.substring((prop + '.').length, name.length);
+        result[prop][name] = value;
+    }
+
+    /**
      * Converts an array that has String members of "name=value"
      * into an object, where the properties on the object are the names in the array.
      * Also converts the strings "true" and "false" to booleans for the values.
@@ -8088,14 +8044,8 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
                 value = value.split(",");
             }
 
-            if (prop.indexOf("paths.") === 0) {
-                //Special handling of paths properties. paths.foo=bar is transformed
-                //to data.paths = {foo: 'bar'}
-                if (!result.paths) {
-                    result.paths = {};
-                }
-                prop = prop.substring("paths.".length, prop.length);
-                result.paths[prop] = value;
+            if (prop.indexOf("paths.") === 0 || prop.indexOf("wrap.") === 0) {
+                stringDotToObj(result, prop.split('.')[0], prop, value);
             } else {
                 result[prop] = value;
             }
@@ -8252,6 +8202,27 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             if (config[prop]) {
                 config[prop] = build.makeAbsPath(config[prop], absFilePath);
             }
+        }
+
+        //Get any wrap text.
+        try {
+            if (config.wrap) {
+                if (config.wrap === true) {
+                    //Use default values.
+                    config.wrap = {
+                        start: '(function () {',
+                        end: '}());'
+                    };
+                } else {
+                    config.wrap.start = config.wrap.start ||
+                            file.readFile(build.makeAbsPath(config.wrap.startFile, absFilePath));
+                    config.wrap.end = config.wrap.end ||
+                            file.readFile(build.makeAbsPath(config.wrap.endFile, absFilePath));
+                }
+            }
+        } catch (wrapError) {
+            throw new Error('Malformed wrap config: need both start/end or ' +
+                            'startFile/endFile: ' + wrapError.toString());
         }
 
         //Do final input verification
@@ -8451,7 +8422,9 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
         }
 
         return {
-            text: fileContents,
+            text: config.wrap ?
+                    config.wrap.start + fileContents + config.wrap.end :
+                    fileContents,
             buildText: buildFileContents
         };
     };
@@ -8460,7 +8433,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
     //avoid issues with some Dojo transition modules that use a
     //define(\n//begin v1.x content
     //for a comment.
-    build.anonDefRegExp = /(^|[^\.])(require\s*\.\s*def|define)\s*\(\s*(\/\/[^\n\r]*[\r\n])?(\[|f|\{)/;
+    build.anonDefRegExp = /(^|[^\.])(define)\s*\(\s*(\/\/[^\n\r]*[\r\n])?(\[|f|\{)/;
 
     build.toTransport = function (namespace, moduleName, path, contents, layer) {
         //If anonymous module, insert the module name.
@@ -8468,7 +8441,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             layer.modulesWithNames[moduleName] = true;
 
             //Look for CommonJS require calls inside the function if this is
-            //an anonymous define/require.def call that just has a function registered.
+            //an anonymous define call that just has a function registered.
             var deps = null;
             if (suffix.indexOf('f') !== -1) {
                 deps = parse.getAnonDeps(path, contents);
@@ -8575,7 +8548,10 @@ require({
     baseUrl: require.s.contexts._.config.baseUrl,
     //Use a separate context than the default context so that the
     //build can use the default context.
-    context: 'build'
+    context: 'build',
+    catchError: {
+        define: true
+    }
 },       ['env!env/args', 'build'],
 function (args,            build) {
     build(args);

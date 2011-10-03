@@ -1,5 +1,5 @@
 /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.26.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 0.27.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -11,7 +11,7 @@
 var requirejs, require, define;
 (function () {
     //Change this version number for each release.
-    var version = "0.26.0+",
+    var version = "0.27.0",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -35,12 +35,10 @@ var requirejs, require, define;
         contexts = {},
         globalDefQueue = [],
         interactiveScript = null,
-        isDone = false,
         checkLoadedDepth = 0,
         useInteractive = false,
         req, cfg = {}, currentlyAddingScript, s, head, baseElement, scripts, script,
-        src, subPath, mainScript, dataMain, i, scrollIntervalId, setReadyState, ctx,
-        jQueryCheck, checkLoadedTimeoutId;
+        src, subPath, mainScript, dataMain, i, ctx, jQueryCheck, checkLoadedTimeoutId;
 
     function isFunction(it) {
         return ostring.call(it) === "[object Function]";
@@ -171,7 +169,7 @@ var requirejs, require, define;
         var context, resume,
             config = {
                 waitSeconds: 7,
-                baseUrl: s.baseUrl || "./",
+                baseUrl: "./",
                 paths: {},
                 pkgs: {},
                 catchError: {}
@@ -191,6 +189,10 @@ var requirejs, require, define;
             managerCounter = 0,
             managerCallbacks = {},
             plugins = {},
+            //Used to indicate which modules in a build scenario
+            //need to be full executed.
+            needFullExec = {},
+            fullExec = {},
             resumeDepth = 0;
 
         /**
@@ -385,7 +387,6 @@ var requirejs, require, define;
                 toUrl: makeContextModuleFunc(context.toUrl, relModuleMap),
                 defined: makeContextModuleFunc(context.requireDefined, relModuleMap),
                 specified: makeContextModuleFunc(context.requireSpecified, relModuleMap),
-                ready: req.ready,
                 isBrowser: req.isBrowser
             });
             return modRequire;
@@ -432,12 +433,23 @@ var requirejs, require, define;
                     } else {
                         //Use the return value from the function.
                         defined[fullName] = ret;
+                        //If this module needed full execution in a build
+                        //environment, mark that now.
+                        if (needFullExec[fullName]) {
+                            fullExec[fullName] = true;
+                        }
                     }
                 }
             } else if (fullName) {
                 //May just be an object definition for the module. Only
                 //worry about defining if have a module name.
                 ret = defined[fullName] = cb;
+
+                //If this module needed full execution in a build
+                //environment, mark that now.
+                if (needFullExec[fullName]) {
+                    fullExec[fullName] = true;
+                }
             }
 
             //Clean up waiting. Do this before error calls, and before
@@ -457,6 +469,12 @@ var requirejs, require, define;
 
             //Do not need to track manager callback now that it is defined.
             delete managerCallbacks[fullName];
+
+            //Allow instrumentation like the optimizer to know the order
+            //of modules executed and their dependencies.
+            if (req.onResourceLoad && !manager.placeholder) {
+                req.onResourceLoad(context, map, manager.depArray);
+            }
 
             if (err) {
                 errFile = (fullName ? makeModuleMap(fullName).url : '') ||
@@ -519,11 +537,6 @@ var requirejs, require, define;
             depManager.loading = true;
 
             load = function (ret) {
-                //Allow the build process to register plugin-loaded dependencies.
-                if (req.onPluginLoad) {
-                    req.onPluginLoad(context, pluginName, name, ret);
-                }
-
                 depManager.callback = function () {
                     return ret;
                 };
@@ -541,6 +554,10 @@ var requirejs, require, define;
                 //Indicate a the module is in process of loading.
                 loaded[moduleName] = false;
                 context.scriptCount += 1;
+
+                //Indicate this is not a "real" module, so do not track it
+                //for builds, it does not map to a real file.
+                context.fake[moduleName] = true;
 
                 //Turn off interactive script matching for IE for any define
                 //calls in the text, then turn it back on at the end.
@@ -641,6 +658,11 @@ var requirejs, require, define;
                     var newMap = makeModuleMap(map.originalName, map.parentMap),
                         normalizedManager = getManager(newMap, true);
 
+                    //Indicate this manager is a placeholder for the real,
+                    //normalized thing. Important for when trying to map
+                    //modules and dependencies, for instance, in a build.
+                    manager.placeholder = true;
+
                     normalizedManager.add(function (resource) {
                         manager.callback = function () {
                             return resource;
@@ -668,9 +690,6 @@ var requirejs, require, define;
                 deps = manager.deps,
                 i, depArg, depName, depPrefix, cjsMod;
 
-            manager.depArray = depArray;
-            manager.callback = callback;
-
             if (fullName) {
                 //If module already defined for context, or already loaded,
                 //then leave. Also leave if jQuery is registering but it does
@@ -693,6 +712,13 @@ var requirejs, require, define;
                     jQueryCheck(callback());
                 }
             }
+
+            //Attach real depArray and callback to the manager. Do this
+            //only if the module has not been defined already, so do this after
+            //the fullName checks above. IE can call main() more than once
+            //for a module.
+            manager.depArray = depArray;
+            manager.callback = callback;
 
             //Add the dependencies to the deps field, and register for callbacks
             //on the dependencies.
@@ -725,10 +751,26 @@ var requirejs, require, define;
                             uri: name ? context.nameToUrl(name, null, relModuleMap) : undefined,
                             exports: defined[fullName]
                         };
-                    } else if (depName in defined && !(depName in waiting)) {
-                        //Module already defined, no need to wait for it.
+                    } else if (depName in defined && !(depName in waiting) &&
+                               (!(fullName in needFullExec) ||
+                                (fullName in needFullExec && fullExec[depName]))) {
+                        //Module already defined, and not in a build situation
+                        //where the module is a something that needs full
+                        //execution and this dependency has not been fully
+                        //executed. See r.js's requirePatch.js for more info
+                        //on fullExec.
                         deps[i] = defined[depName];
                     } else {
+                        //Mark this dependency as needing full exec if
+                        //the current module needs full exec.
+                        if (fullName in needFullExec) {
+                            needFullExec[depName] = true;
+                            //Reset state so fully executed code will get
+                            //picked up correctly.
+                            delete defined[depName];
+                            urlFetched[depArg.url] = false;
+                        }
+
                         //Either a resource that is not loaded yet, or a plugin
                         //resource for either a plugin that has not
                         //loaded yet.
@@ -1035,11 +1077,15 @@ var requirejs, require, define;
             specified: specified,
             loaded: loaded,
             urlMap: urlMap,
+            urlFetched: urlFetched,
             scriptCount: 0,
             defined: defined,
             paused: [],
             pausedCount: 0,
             plugins: plugins,
+            needFullExec: needFullExec,
+            fake: {},
+            fullExec: fullExec,
             managerCallbacks: managerCallbacks,
             makeModuleMap: makeModuleMap,
             normalize: normalize,
@@ -1131,12 +1177,6 @@ var requirejs, require, define;
                 if (cfg.deps || cfg.callback) {
                     context.require(cfg.deps || [], cfg.callback);
                 }
-
-                //Set up ready callback, if asked. Useful when require is defined as a
-                //config object before require.js is loaded.
-                if (cfg.ready) {
-                    req.ready(cfg.ready);
-                }
             },
 
             requireDefined: function (moduleName, relModuleMap) {
@@ -1150,6 +1190,11 @@ var requirejs, require, define;
             require: function (deps, callback, relModuleMap) {
                 var moduleName, fullName, moduleMap;
                 if (typeof deps === "string") {
+                    if (isFunction(callback)) {
+                        //Invalid call
+                        return req.onError(makeError("requireargs", "Invalid require call"));
+                    }
+
                     //Synchronous access to one module. If require.get is
                     //available (as in the Node adapter), prefer that.
                     //In this case deps is the moduleName and callback is
@@ -1424,17 +1469,13 @@ var requirejs, require, define;
     };
 
     req.version = version;
-    req.isArray = isArray;
-    req.isFunction = isFunction;
-    req.mixin = mixin;
+
     //Used to filter out dependencies that are already paths.
     req.jsExtRegExp = /^\/|:|\?|\.js$/;
     s = req.s = {
         contexts: contexts,
         //Stores a list of URLs that should not get async script tag treatment.
-        skipAsync: {},
-        isPageLoaded: !isBrowser,
-        readyCalls: []
+        skipAsync: {}
     };
 
     req.isAsync = req.isBrowser = isBrowser;
@@ -1468,7 +1509,7 @@ var requirejs, require, define;
      * @param {Object} url the URL to the module.
      */
     req.load = function (context, moduleName, url) {
-        isDone = false;
+        req.resourcesReady(false);
 
         context.scriptCount += 1;
         req.attach(url, context, moduleName);
@@ -1517,14 +1558,14 @@ var requirejs, require, define;
         }
 
         //This module may not have dependencies
-        if (!req.isArray(deps)) {
+        if (!isArray(deps)) {
             callback = deps;
             deps = [];
         }
 
         //If no name, and callback is a function, then figure out if it a
         //CommonJS thing with dependencies.
-        if (!name && !deps.length && req.isFunction(callback)) {
+        if (!name && !deps.length && isFunction(callback)) {
             //Remove comments from the callback string,
             //look for require calls, and pull them into the dependencies,
             //but only if there are function args.
@@ -1594,6 +1635,25 @@ var requirejs, require, define;
         return callback.apply(exports, args);
     };
 
+
+    /**
+     * Adds a node to the DOM. Public function since used by the order plugin.
+     * This method should not normally be called by outside code.
+     */
+    req.addScriptToDom = function (node) {
+        //For some cache cases in IE 6-8, the script executes before the end
+        //of the appendChild execution, so to tie an anonymous define
+        //call to the module name (which is stored on the node), hold on
+        //to a reference to this node, but clear after the DOM insertion.
+        currentlyAddingScript = node;
+        if (baseElement) {
+            head.insertBefore(node, baseElement);
+        } else {
+            head.appendChild(node);
+        }
+        currentlyAddingScript = null;
+    };
+
     /**
      * callback for script loads, used to check status of loading.
      *
@@ -1609,7 +1669,7 @@ var requirejs, require, define;
         var node = evt.currentTarget || evt.srcElement, contextName, moduleName,
             context;
 
-        if (evt.type === "load" || readyRegExp.test(node.readyState)) {
+        if (evt.type === "load" || (node && readyRegExp.test(node.readyState))) {
             //Reset interactive script so a script node is not held onto for
             //to long.
             interactiveScript = null;
@@ -1643,8 +1703,13 @@ var requirejs, require, define;
      * @param {moduleName} the name of the module that is associated with the script.
      * @param {Function} [callback] optional callback, defaults to require.onScriptLoad
      * @param {String} [type] optional type, defaults to text/javascript
+     * @param {Function} [fetchOnlyFunction] optional function to indicate the script node
+     * should be set up to fetch the script but do not attach it to the DOM
+     * so that it can later be attached to execute it. This is a way for the
+     * order plugin to support ordered loading in IE. Once the script is fetched,
+     * but not executed, the fetchOnlyFunction will be called.
      */
-    req.attach = function (url, context, moduleName, callback, type) {
+    req.attach = function (url, context, moduleName, callback, type, fetchOnlyFunction) {
         var node;
         if (isBrowser) {
             //In the browser so use a script tag
@@ -1686,23 +1751,36 @@ var requirejs, require, define;
                 //However, IE reports the script as being in "interactive"
                 //readyState at the time of the define call.
                 useInteractive = true;
-                node.attachEvent("onreadystatechange", callback);
+
+
+                if (fetchOnlyFunction) {
+                    //Need to use old school onreadystate here since
+                    //when the event fires and the node is not attached
+                    //to the DOM, the evt.srcElement is null, so use
+                    //a closure to remember the node.
+                    node.onreadystatechange = function (evt) {
+                        //Script loaded but not executed.
+                        //Clear loaded handler, set the real one that
+                        //waits for script execution.
+                        if (node.readyState === 'loaded') {
+                            node.onreadystatechange = null;
+                            node.attachEvent("onreadystatechange", callback);
+                            fetchOnlyFunction(node);
+                        }
+                    };
+                } else {
+                    node.attachEvent("onreadystatechange", callback);
+                }
             } else {
                 node.addEventListener("load", callback, false);
             }
             node.src = url;
 
-            //For some cache cases in IE 6-8, the script executes before the end
-            //of the appendChild execution, so to tie an anonymous define
-            //call to the module name (which is stored on the node), hold on
-            //to a reference to this node, but clear after the DOM insertion.
-            currentlyAddingScript = node;
-            if (baseElement) {
-                head.insertBefore(node, baseElement);
-            } else {
-                head.appendChild(node);
+            //Fetch only means waiting to attach to DOM after loaded.
+            if (!fetchOnlyFunction) {
+                req.addScriptToDom(node);
             }
-            currentlyAddingScript = null;
+
             return node;
         } else if (isWebWorker) {
             //In a web worker, use importScripts. This is not a very
@@ -1757,36 +1835,8 @@ var requirejs, require, define;
         }
     }
 
-    //Set baseUrl based on config.
-    s.baseUrl = cfg.baseUrl;
-
-    //****** START page load functionality ****************
-    /**
-     * Sets the page as loaded and triggers check for all modules loaded.
-     */
-    req.pageLoaded = function () {
-        if (!s.isPageLoaded) {
-            s.isPageLoaded = true;
-            if (scrollIntervalId) {
-                clearInterval(scrollIntervalId);
-            }
-
-            //Part of a fix for FF < 3.6 where readyState was not set to
-            //complete so libraries like jQuery that check for readyState
-            //after page load where not getting initialized correctly.
-            //Original approach suggested by Andrea Giammarchi:
-            //http://webreflection.blogspot.com/2009/11/195-chars-to-help-lazy-loading.html
-            //see other setReadyState reference for the rest of the fix.
-            if (setReadyState) {
-                document.readyState = "complete";
-            }
-
-            req.callReady();
-        }
-    };
-
     //See if there is nothing waiting across contexts, and if not, trigger
-    //callReady.
+    //resourcesReady.
     req.checkReadyState = function () {
         var contexts = s.contexts, prop;
         for (prop in contexts) {
@@ -1796,26 +1846,22 @@ var requirejs, require, define;
                 }
             }
         }
-        s.isDone = true;
-        req.callReady();
+        req.resourcesReady(true);
     };
 
     /**
-     * Internal function that calls back any ready functions. If you are
-     * integrating RequireJS with another library without require.ready support,
-     * you can define this method to call your page ready code instead.
+     * Internal function that is triggered whenever all scripts/resources
+     * have been loaded by the loader. Can be overridden by other, for
+     * instance the domReady plugin, which wants to know when all resources
+     * are loaded.
      */
-    req.callReady = function () {
-        var callbacks = s.readyCalls, i, callback, contexts, context, prop;
+    req.resourcesReady = function (isReady) {
+        var contexts, context, prop;
 
-        if (s.isPageLoaded && s.isDone) {
-            if (callbacks.length) {
-                s.readyCalls = [];
-                for (i = 0; (callback = callbacks[i]); i++) {
-                    callback();
-                }
-            }
+        //First, set the public variable indicating that resources are loading.
+        req.resourcesDone = isReady;
 
+        if (req.resourcesDone) {
             //If jQuery with DOM ready delayed, release it now.
             contexts = s.contexts;
             for (prop in contexts) {
@@ -1830,62 +1876,23 @@ var requirejs, require, define;
         }
     };
 
-    /**
-     * Registers functions to call when the page is loaded
-     */
-    req.ready = function (callback) {
-        if (s.isPageLoaded && s.isDone) {
-            callback();
-        } else {
-            s.readyCalls.push(callback);
+    //FF < 3.6 readyState fix. Needed so that domReady plugin
+    //works well in that environment, since require.js is normally
+    //loaded via an HTML script tag so it will be there before window load,
+    //where the domReady plugin is more likely to be loaded after window load.
+    req.pageLoaded = function () {
+        if (document.readyState !== "complete") {
+            document.readyState = "complete";
         }
-        return req;
     };
-
     if (isBrowser) {
         if (document.addEventListener) {
-            //Standards. Hooray! Assumption here that if standards based,
-            //it knows about DOMContentLoaded.
-            document.addEventListener("DOMContentLoaded", req.pageLoaded, false);
-            window.addEventListener("load", req.pageLoaded, false);
-            //Part of FF < 3.6 readystate fix (see setReadyState refs for more info)
             if (!document.readyState) {
-                setReadyState = true;
                 document.readyState = "loading";
+                window.addEventListener("load", req.pageLoaded, false);
             }
-        } else if (window.attachEvent) {
-            window.attachEvent("onload", req.pageLoaded);
-
-            //DOMContentLoaded approximation, as found by Diego Perini:
-            //http://javascript.nwbox.com/IEContentLoaded/
-            if (self === self.top) {
-                scrollIntervalId = setInterval(function () {
-                    try {
-                        //From this ticket:
-                        //http://bugs.dojotoolkit.org/ticket/11106,
-                        //In IE HTML Application (HTA), such as in a selenium test,
-                        //javascript in the iframe can't see anything outside
-                        //of it, so self===self.top is true, but the iframe is
-                        //not the top window and doScroll will be available
-                        //before document.body is set. Test document.body
-                        //before trying the doScroll trick.
-                        if (document.body) {
-                            document.documentElement.doScroll("left");
-                            req.pageLoaded();
-                        }
-                    } catch (e) {}
-                }, 30);
-            }
-        }
-
-        //Check if document already complete, and if so, just trigger page load
-        //listeners. NOTE: does not work with Firefox before 3.6. To support
-        //those browsers, manually call require.pageLoaded().
-        if (document.readyState === "complete") {
-            req.pageLoaded();
         }
     }
-    //****** END page load functionality ****************
 
     //Set up default context. If require was a configuration object, use that as base config.
     req(cfg);

@@ -1,5 +1,5 @@
-define
+define ['domReady'], (domReady) ->
   attach: (view) ->
     # Just a simple demonstration of some modules cooperating.
-    require.ready ->
+    domReady ->
       view.render document.getElementsByTagName('body')[0]

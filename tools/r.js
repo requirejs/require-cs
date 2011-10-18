@@ -1,5 +1,5 @@
 /**
- * @license r.js 0.27.1 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 1.0.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib,
-        version = '0.27.1',
+        version = '1.0.0',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         //Used by jslib/rhino/args.js
@@ -101,7 +101,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 0.27.1 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 1.0.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -113,7 +113,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "0.27.1",
+    var version = "1.0.0",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -7919,7 +7919,7 @@ define('commonJs', ['env!env/file', 'uglifyjs/index'], function (file, uglify) {
          * Regexp for testing if there is already a require.def call in the file,
          * in which case do not try to convert it.
          */
-        defRegExp: /define\s*\(/,
+        defRegExp: /define\s*\(\s*("|'|\[|function)/,
 
         /**
          * Regexp for testing if there is a require([]) or require(function(){})

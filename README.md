@@ -27,9 +27,9 @@ but it should be saved on disk as "CoffeeScript.js", since that matches the name
 of the JS object created by the script, and the cs.js loader plugin references
 a module dependency called "CoffeeScript".
 
-2) Download the latest release version of cs.js.
+2) Download the [latest version of cs.js in the branch named "separate"](https://raw.github.com/jrburke/require-cs/separate/cs.js).
 
-3) For doing builds, download the latest release version of csBuild.js,
+3) For doing builds, download the [latest version of csBuild.js in the branch named "separate"](https://raw.github.com/jrburke/require-cs/separate/cs.js),
 it is used in place of the cs.js plugin after a build is done.
 
 4) Reference CoffeeScript files via the cs! plugin name:
@@ -60,7 +60,8 @@ as the entry point into the demo. It is not a fancy demo, just shows basic use.
 
 # Optimizing
 
-See **demo/build.sh** for an example build script that drives the optimizer.
+See **demo/build.sh** for an example build script that drives the optimizer with
+the **demo/build.js** build config.
 
 Be sure you have downloaded csBuild.js for use in the build.
 

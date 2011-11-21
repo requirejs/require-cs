@@ -1,5 +1,6 @@
 require({
   paths: {
-    cs: '../../cs'
+    cs: '../../cs',
+    CoffeeScript: '../../CoffeeScript'
   }
 }, ['cs!csmain']);

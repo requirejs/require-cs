@@ -5,19 +5,20 @@
     //optimize: 'none',
     dir: '../demo-build',
     paths: {
-        cs: '../../cs'
-    },
-    //This pragma excludes the CoffeeScript compiler code
-    //from the optimized source, since all CoffeeScript files
-    //are converted and inlined into the main.js built file.
-    //If you still want to allow dynamic loading of CoffeeScript
-    //files after a build, comment out the pragmasOnSave section.
-    pragmasOnSave: {
-        excludeCoffeeScript: true
+        //Switch the mappings for cs and csBuild so the built
+        //version of the cs plugin is super small.
+        cs: '../../csBuild',
+        csBuild: '../../cs',
+        CoffeeScript: '../../CoffeeScript'
     },
     modules: [
         {
-            name: "main"
+            name: 'main',
+            //The optimization will load CoffeeScript to convert
+            //the CoffeeScript files to plain JS. Use the exclude
+            //directive so that the CoffeeScript module is not included
+            //in the built file.
+            exclude: ['CoffeeScript']
         }
     ]
 })

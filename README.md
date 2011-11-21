@@ -5,7 +5,7 @@ that may work with module loaders like [RequireJS](http://requirejs.org),
 [curl](https://github.com/unscriptable/curl) and
 [backdraft](http://bdframework.org/bdLoad/docs/bdLoad-tutorial/bdLoad-tutorial.html).
 
-It is known to work with RequireJS 0.24.0+.
+It is known to work with RequireJS 1.0+.
 
 This loader plugin makes it easy to write your JS functionality in CoffeeScript,
 and easily use it in the browser, Node or Rhino. Plus, if you use the RequireJS
@@ -19,10 +19,20 @@ serve your .coffee files.
 
 ## Usage
 
-1) Download the latest release version of cs.js. It includes the CoffeeScript
-implementation.
+1) Download CoffeeScript for the browser that registers as an AMD module. Right
+now, that means grabbing the [latest master version of coffee-script.js](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js).
 
-2) Reference CoffeeScript files via the cs! plugin name:
+The file is normally named coffee-script.js,
+but it should be saved on disk as "CoffeeScript.js", since that matches the name
+of the JS object created by the script, and the cs.js loader plugin references
+a module dependency called "CoffeeScript".
+
+2) Download the latest release version of cs.js.
+
+3) For doing builds, download the latest release version of csBuild.js,
+it is used in place of the cs.js plugin after a build is done.
+
+4) Reference CoffeeScript files via the cs! plugin name:
 
     require(['cs!app'], function (app) {
 
@@ -46,17 +56,24 @@ to allow inlining of the translated JS content.
 ## Complete web project
 
 The **demo** directory shows a complete web example. See the demo/index.html file
-as the entry point into the demo. It is not pretty but it works.
+as the entry point into the demo. It is not a fancy demo, just shows basic use.
 
 # Optimizing
 
-See **demo/build.sh** for an example build script that drives the optimizer. The
-build will generate a **demo-build** directory with the optimized files. Where
+See **demo/build.sh** for an example build script that drives the optimizer.
+
+Be sure you have downloaded csBuild.js for use in the build.
+
+The build will generate a **demo-build** directory with the optimized files. Where
 the unoptimized demo directory will load 7 files, the optimized one only loads 2,
-and the CoffeeScript files have been converted to JavaScript.
+and the CoffeeScript files have been converted to JavaScript. Since the csBuild.js
+file will be used instead of the cs.js file in the optimized file, it will not
+require loading CoffeeScript after the build is done.
+
+If you want to do dynamic loading of CoffeeScript files after a build, then
+**do not** use csBuild.js and do not do the reverse path config that build.js
+does in the build.
 
 ## License
 
 Available via the MIT or new BSD license.
-
-The CoffeeScript parts are governed by [the CoffeeScript license](https://github.com/jashkenas/coffee-script/blob/master/LICENSE).

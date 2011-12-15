@@ -1,5 +1,5 @@
 /**
- * @license r.js 1.0.1+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license r.js 1.0.2 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib,
-        version = '1.0.1+',
+        version = '1.0.2',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         //Used by jslib/rhino/args.js
@@ -101,7 +101,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 1.0.1+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 1.0.2 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -113,7 +113,7 @@ var requirejs, require, define;
 
 (function () {
     //Change this version number for each release.
-    var version = "1.0.1+",
+    var version = "1.0.2",
         commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
         cjsRequireRegExp = /require\(\s*["']([^'"\s]+)["']\s*\)/g,
         currDirRegExp = /^\.\//,
@@ -7456,6 +7456,8 @@ function (lang,   logger,   envOptimize,        file,           parse,
     }
 
     optimize = {
+        licenseCommentRegExp: /\/\*[\s\S]*?\*\//g,
+
         /**
          * Optimizes a file that contains JavaScript content. Optionally collects
          * plugin resources mentioned in a file, and then passes the content
@@ -7474,7 +7476,8 @@ function (lang,   logger,   envOptimize,        file,           parse,
             var parts = (config.optimize + "").split('.'),
                 optimizerName = parts[0],
                 keepLines = parts[1] === 'keepLines',
-                fileContents, optFunc, deps, i, dep;
+                licenseContents = '',
+                fileContents, optFunc, match, comment;
 
             fileContents = file.readFile(fileName);
 
@@ -7489,7 +7492,19 @@ function (lang,   logger,   envOptimize,        file,           parse,
                                     optimizerName +
                                     '" not found for this environment');
                 }
-                fileContents = optFunc(fileName, fileContents, keepLines,
+
+                //Pull out any license comments for prepending after optimization.
+                optimize.licenseCommentRegExp.lastIndex = 0;
+                while ((match = optimize.licenseCommentRegExp.exec(fileContents))) {
+                    comment = match[0];
+                    //Only keep the comments if they are license comments.
+                    if (comment.indexOf('@license') !== -1 ||
+                        comment.indexOf('/*!') === 0) {
+                        licenseContents += comment + '\n';
+                    }
+                }
+
+                fileContents = licenseContents + optFunc(fileName, fileContents, keepLines,
                                         config[optimizerName]);
             }
 

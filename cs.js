@@ -1,5 +1,5 @@
 /**
- * @license cs 0.3.1 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license cs 0.3.2 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/require-cs for details
  *
@@ -4358,7 +4358,7 @@ return __MODULES['coffee-script'];
 }());
 //END COFFEESCRIPT
 
-    if (typeof window !== "undefined" && window.navigator && window.document) {
+    if ((typeof window !== "undefined" && window.navigator && window.document) || typeof importScripts !== "undefined") {
         // Browser action
         getXhr = function () {
             //Would love to dump the ActiveX crap in here. Need IE 6 to die first.
@@ -4476,7 +4476,7 @@ return __MODULES['coffee-script'];
         },
         //>>excludeEnd('excludeCoffeeScript')
 
-        version: '0.3.1',
+        version: '0.3.2',
 
         load: function (name, parentRequire, load, config) {
             //>>excludeStart('excludeCoffeeScript', pragmas.excludeCoffeeScript)

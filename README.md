@@ -17,7 +17,7 @@ fetch files that are on the same domain as the HTML page, and most browsers plac
 restrictions on using XMLHttpRequest from local file URLs, so use a web server to
 serve your .coffee files.
 
-## Usage
+## Usage <a name="usage"></a>
 
 1) Download CoffeeScript for the browser that registers as an AMD module. Right
 now, that means grabbing the [latest master version of coffee-script.js](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js).
@@ -53,17 +53,17 @@ If you are using define() in a module written with CoffeeScript:
 the optimization work will not happen correctly -- the name of the module is changed
 to allow inlining of the translated JS content.
 
-## Complete web project
+## Complete web project <a name="demo"></a>
 
 The **demo** directory shows a complete web example. See the demo/index.html file
 as the entry point into the demo. It is not a fancy demo, just shows basic use.
 
-# Optimizing
+# Optimizing <a name="optimizing"></a>
 
 See **demo/build.sh** for an example build script that drives the optimizer with
 the **demo/build.js** build config.
 
-Be sure you have downloaded csBuild.js for use in the build.
+**Be sure you have downloaded csBuild.js** for use in the build.
 
 The build will generate a **demo-build** directory with the optimized files. Where
 the unoptimized demo directory will load 7 files, the optimized one only loads 2,
@@ -75,6 +75,6 @@ If you want to do dynamic loading of CoffeeScript files after a build, then
 **do not** use csBuild.js and do not do the reverse path config that build.js
 does in the build.
 
-## License
+## License <a name="license"></a>
 
 Available via the MIT or new BSD license.

@@ -19,17 +19,25 @@ serve your .coffee files.
 
 ## Usage <a name="usage"></a>
 
-1) Download CoffeeScript for the browser that registers as an AMD module. Right
-now, that means grabbing the [latest master version of coffee-script.js](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js).
+1) Download CoffeeScript for the browser that registers as an AMD module. You
+that by using a "raw" GitHub URL. It takes the form of:
 
-The file is normally named coffee-script.js,
-but it should be saved on disk as "CoffeeScript.js", since that matches the name
-of the JS object created by the script, and the cs.js loader plugin references
-a module dependency called "CoffeeScript".
+    https://raw.github.com/jashkenas/coffee-script/[BRANCH-OR-VERSION]/extras/coffee-script.js
 
-2) Download the [latest version of cs.js in the branch named "separate"](https://raw.github.com/jrburke/require-cs/separate/cs.js).
+Example links:
 
-3) For doing builds, download the [latest version of csBuild.js in the branch named "separate"](https://raw.github.com/jrburke/require-cs/separate/cs.js),
+* [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
+* [1.2.0](https://raw.github.com/jashkenas/coffee-script/1.2.0/extras/coffee-script.js)
+
+The file is normally named coffee-script.js, but it should be saved on disk as
+"CoffeeScript.js", since that matches the name of the JS object created by the
+script, and the cs.js loader plugin references a module dependency called
+"CoffeeScript".
+
+2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
+
+3) For doing builds, download the
+[latest version of csBuild.js](https://raw.github.com/jrburke/require-cs/latest/csBuild.js),
 it is used in place of the cs.js plugin after a build is done.
 
 4) Reference CoffeeScript files via the cs! plugin name:

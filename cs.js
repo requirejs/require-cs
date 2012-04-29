@@ -1,13 +1,15 @@
 /**
- * @license cs 0.4.0 Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
+ * @license cs 0.4.0+ Copyright (c) 2010-2011, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/require-cs for details
  */
 
-/*jslint strict: false */
-/*global define, window, XMLHttpRequest, ActiveXObject, process, require */
+/*jslint */
+/*global define, window, XMLHttpRequest, importScripts, Packages, java,
+  ActiveXObject, process, require */
 
 define(['CoffeeScript'], function (CoffeeScript) {
+    'use strict';
     var fs, getXhr,
         progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
         fetchText = function () {
@@ -110,13 +112,13 @@ define(['CoffeeScript'], function (CoffeeScript) {
         },
 
         write: function (pluginName, name, write) {
-            if (name in buildMap) {
+            if (buildMap.hasOwnProperty(name)) {
                 var text = buildMap[name];
                 write.asModule(pluginName + "!" + name, text);
             }
         },
 
-        version: '0.4.0',
+        version: '0.4.0+',
 
         load: function (name, parentRequire, load, config) {
             var path = parentRequire.toUrl(name + '.coffee');

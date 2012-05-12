@@ -17,7 +17,15 @@ define(['CoffeeScript'], function (CoffeeScript) {
         },
         buildMap = {};
 
-    if ((typeof window !== "undefined" && window.navigator && window.document) || typeof importScripts !== "undefined") {
+    if (typeof process !== "undefined" &&
+               process.versions &&
+               !!process.versions.node) {
+        //Using special require.nodeRequire, something added by r.js.
+        fs = require.nodeRequire('fs');
+        fetchText = function (path, callback) {
+            callback(fs.readFileSync(path, 'utf8'));
+        };
+    } else if ((typeof window !== "undefined" && window.navigator && window.document) || typeof importScripts !== "undefined") {
         // Browser action
         getXhr = function () {
             //Would love to dump the ActiveX crap in here. Need IE 6 to die first.
@@ -58,14 +66,6 @@ define(['CoffeeScript'], function (CoffeeScript) {
             xhr.send(null);
         };
         // end browser.js adapters
-    } else if (typeof process !== "undefined" &&
-               process.versions &&
-               !!process.versions.node) {
-        //Using special require.nodeRequire, something added by r.js.
-        fs = require.nodeRequire('fs');
-        fetchText = function (path, callback) {
-            callback(fs.readFileSync(path, 'utf8'));
-        };
     } else if (typeof Packages !== 'undefined') {
         //Why Java, why is this so awkward?
         fetchText = function (path, callback) {

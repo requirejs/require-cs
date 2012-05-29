@@ -36,11 +36,7 @@ script, and the cs.js loader plugin references a module dependency called
 
 2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
 
-3) For doing builds, download the
-[latest version of csBuild.js](https://raw.github.com/jrburke/require-cs/latest/csBuild.js),
-it is used in place of the cs.js plugin after a build is done.
-
-4) Reference CoffeeScript files via the cs! plugin name:
+3) Reference CoffeeScript files via the cs! plugin name:
 
     require(['cs!app'], function (app) {
 
@@ -71,17 +67,15 @@ as the entry point into the demo. It is not a fancy demo, just shows basic use.
 See **demo/build.sh** for an example build script that drives the optimizer with
 the **demo/build.js** build config.
 
-**Be sure you have downloaded csBuild.js** for use in the build.
-
 The build will generate a **demo-build** directory with the optimized files. Where
 the unoptimized demo directory will load 7 files, the optimized one only loads 2,
-and the CoffeeScript files have been converted to JavaScript. Since the csBuild.js
-file will be used instead of the cs.js file in the optimized file, it will not
-require loading CoffeeScript after the build is done.
+and the CoffeeScript files have been converted to JavaScript. Since all the CoffeeScript
+modules have been converted to JS after the build, the CoffeeScript module and
+the source cs.js module are not included/needed in the built file.
 
 If you want to do dynamic loading of CoffeeScript files after a build, then
-**do not** use csBuild.js and do not do the reverse path config that build.js
-does in the build.
+comment out `stubModules: ['cs']` and `exclude: ['CoffeeScript']` from the build
+file so that they will be included in the build.
 
 ## License <a name="license"></a>
 

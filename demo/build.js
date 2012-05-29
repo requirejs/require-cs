@@ -1,16 +1,20 @@
 ({
     appDir: '.',
     baseUrl: 'lib',
+
     //Uncomment to turn off uglify minification.
     //optimize: 'none',
     dir: '../demo-build',
+
+    //Stub out the cs module after a build since
+    //it will not be needed.
+    stubModules: ['cs'],
+
     paths: {
-        //Switch the mappings for cs and csBuild so the built
-        //version of the cs plugin is super small.
-        cs: '../../csBuild',
-        csBuild: '../../cs',
-        CoffeeScript: '../../CoffeeScript'
+        'cs' :'../../cs',
+        'CoffeeScript': '../../CoffeeScript'
     },
+
     modules: [
         {
             name: 'main',

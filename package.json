@@ -2,6 +2,9 @@
     "name": "cs",
     "description": "An AMD loader plugin for CoffeeScript",
     "version": "0.4.1",
+    "dependencies": {
+        "coffee-script": ">=1.2.0"
+    },
     "main": "cs.js",
     "volo": {
         "url": "https://raw.github.com/jrburke/require-cs/{version}/cs.js",

@@ -9,7 +9,7 @@
     "volo": {
         "url": "https://raw.github.com/jrburke/require-cs/{version}/cs.js",
         "dependencies": {
-            "CoffeeScript": "jashkenas/coffee-script"
+            "coffee-script": "jashkenas/coffee-script"
         }
     }
 }

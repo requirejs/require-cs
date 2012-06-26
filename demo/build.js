@@ -12,7 +12,7 @@
 
     paths: {
         'cs' :'../../cs',
-        'CoffeeScript': '../../CoffeeScript'
+        'coffee-script': '../../coffee-script'
     },
 
     modules: [
@@ -20,9 +20,9 @@
             name: 'main',
             //The optimization will load CoffeeScript to convert
             //the CoffeeScript files to plain JS. Use the exclude
-            //directive so that the CoffeeScript module is not included
+            //directive so that the coffee-script module is not included
             //in the built file.
-            exclude: ['CoffeeScript']
+            exclude: ['coffee-script']
         }
     ]
 })

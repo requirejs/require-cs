@@ -27,12 +27,7 @@ that by using a "raw" GitHub URL. It takes the form of:
 Example links:
 
 * [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
-* [1.2.0](https://raw.github.com/jashkenas/coffee-script/1.2.0/extras/coffee-script.js)
-
-The file is normally named coffee-script.js, but it should be saved on disk as
-"CoffeeScript.js", since that matches the name of the JS object created by the
-script, and the cs.js loader plugin references a module dependency called
-"CoffeeScript".
+* [1.3.3](https://raw.github.com/jashkenas/coffee-script/1.3.3/extras/coffee-script.js)
 
 2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
 
@@ -74,7 +69,7 @@ modules have been converted to JS after the build, the CoffeeScript module and
 the source cs.js module are not included/needed in the built file.
 
 If you want to do dynamic loading of CoffeeScript files after a build, then
-comment out `stubModules: ['cs']` and `exclude: ['CoffeeScript']` from the build
+comment out `stubModules: ['cs']` and `exclude: ['coffee-script']` from the build
 file so that they will be included in the build.
 
 ## License <a name="license"></a>

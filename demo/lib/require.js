@@ -1,5 +1,5 @@
 /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 2.0.2+ Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 2.0.4 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -10,9 +10,9 @@ var requirejs, require, define;
 (function (global) {
     'use strict';
 
-    var version = '2.0.2+',
+    var version = '2.0.4',
         commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
-        cjsRequireRegExp = /require\s*\(\s*["']([^'"\s]+)["']\s*\)/g,
+        cjsRequireRegExp = /[^.]\s*require\s*\(\s*["']([^'"\s]+)["']\s*\)/g,
         jsSuffixRegExp = /\.js$/,
         currDirRegExp = /^\.\//,
         ostring = Object.prototype.toString,
@@ -288,6 +288,7 @@ var requirejs, require, define;
          */
         function normalize(name, baseName, applyMap) {
             var baseParts = baseName && baseName.split('/'),
+                normalizedBaseParts = baseParts,
                 map = config.map,
                 starMap = map && map['*'],
                 pkgName, pkgConfig, mapValue, nameParts, i, j, nameSegment,
@@ -302,17 +303,17 @@ var requirejs, require, define;
                     if (config.pkgs[baseName]) {
                         //If the baseName is a package name, then just treat it as one
                         //name to concat the name with.
-                        baseParts = [baseName];
+                        normalizedBaseParts = baseParts = [baseName];
                     } else {
                         //Convert baseName to array, and lop off the last part,
                         //so that . matches that 'directory' and not name of the baseName's
                         //module. For instance, baseName of 'one/two/three', maps to
                         //'one/two/three.js', but we want the directory, 'one/two' for
                         //this normalization.
-                        baseParts = baseParts.slice(0, baseParts.length - 1);
+                        normalizedBaseParts = baseParts.slice(0, baseParts.length - 1);
                     }
 
-                    name = baseParts.concat(name.split('/'));
+                    name = normalizedBaseParts.concat(name.split('/'));
                     trimDots(name);
 
                     //Some use of packages may use a . path to reference the
@@ -1813,6 +1814,7 @@ var requirejs, require, define;
                    document.createElement('script');
             node.type = config.scriptType || 'text/javascript';
             node.charset = 'utf-8';
+            node.async = true;
 
             node.setAttribute('data-requirecontext', context.contextName);
             node.setAttribute('data-requiremodule', moduleName);

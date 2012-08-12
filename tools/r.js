@@ -1,5 +1,5 @@
 /**
- * @license r.js 2.0.2+ Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
+ * @license r.js 2.0.4 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -20,7 +20,7 @@ var requirejs, require, define;
 
     var fileName, env, fs, vm, path, exec, rhinoContext, dir, nodeRequire,
         nodeDefine, exists, reqMain, loadedOptimizedLib, existsForNode,
-        version = '2.0.2+',
+        version = '2.0.4',
         jsSuffixRegExp = /\.js$/,
         commandOption = '',
         useLibLoaded = {},
@@ -105,7 +105,7 @@ var requirejs, require, define;
     }
 
     /** vim: et:ts=4:sw=4:sts=4
- * @license RequireJS 2.0.2+ Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
+ * @license RequireJS 2.0.4 Copyright (c) 2010-2012, The Dojo Foundation All Rights Reserved.
  * Available via the MIT or new BSD license.
  * see: http://github.com/jrburke/requirejs for details
  */
@@ -116,9 +116,9 @@ var requirejs, require, define;
 (function (global) {
     'use strict';
 
-    var version = '2.0.2+',
+    var version = '2.0.4',
         commentRegExp = /(\/\*([\s\S]*?)\*\/|([^:]|^)\/\/(.*)$)/mg,
-        cjsRequireRegExp = /require\s*\(\s*["']([^'"\s]+)["']\s*\)/g,
+        cjsRequireRegExp = /[^.]\s*require\s*\(\s*["']([^'"\s]+)["']\s*\)/g,
         jsSuffixRegExp = /\.js$/,
         currDirRegExp = /^\.\//,
         ostring = Object.prototype.toString,
@@ -394,6 +394,7 @@ var requirejs, require, define;
          */
         function normalize(name, baseName, applyMap) {
             var baseParts = baseName && baseName.split('/'),
+                normalizedBaseParts = baseParts,
                 map = config.map,
                 starMap = map && map['*'],
                 pkgName, pkgConfig, mapValue, nameParts, i, j, nameSegment,
@@ -408,17 +409,17 @@ var requirejs, require, define;
                     if (config.pkgs[baseName]) {
                         //If the baseName is a package name, then just treat it as one
                         //name to concat the name with.
-                        baseParts = [baseName];
+                        normalizedBaseParts = baseParts = [baseName];
                     } else {
                         //Convert baseName to array, and lop off the last part,
                         //so that . matches that 'directory' and not name of the baseName's
                         //module. For instance, baseName of 'one/two/three', maps to
                         //'one/two/three.js', but we want the directory, 'one/two' for
                         //this normalization.
-                        baseParts = baseParts.slice(0, baseParts.length - 1);
+                        normalizedBaseParts = baseParts.slice(0, baseParts.length - 1);
                     }
 
-                    name = baseParts.concat(name.split('/'));
+                    name = normalizedBaseParts.concat(name.split('/'));
                     trimDots(name);
 
                     //Some use of packages may use a . path to reference the
@@ -1919,6 +1920,7 @@ var requirejs, require, define;
                    document.createElement('script');
             node.type = config.scriptType || 'text/javascript';
             node.charset = 'utf-8';
+            node.async = true;
 
             node.setAttribute('data-requirecontext', context.contextName);
             node.setAttribute('data-requiremodule', moduleName);
@@ -2717,6 +2719,31 @@ define('node/file', ['fs', 'path'], function (fs, path) {
                     fs.unlinkSync(fileName);
                 }
             }
+        },
+
+
+        /**
+         * Deletes any empty directories under the given directory.
+         */
+        deleteEmptyDirs: function (startDir) {
+            var dirFileArray, i, fileName, filePath, stat;
+
+            if (file.exists(startDir)) {
+                dirFileArray = fs.readdirSync(startDir);
+                for (i = 0; i < dirFileArray.length; i++) {
+                    fileName = dirFileArray[i];
+                    filePath = path.join(startDir, fileName);
+                    stat = fs.statSync(filePath);
+                    if (stat.isDirectory()) {
+                        file.deleteEmptyDirs(filePath);
+                    }
+                }
+
+                //If directory is now empty, remove it.
+                if (fs.readdirSync(startDir).length ===  0) {
+                    file.deleteFile(startDir);
+                }
+            }
         }
     };
 
@@ -2734,7 +2761,7 @@ if(env === 'rhino') {
  */
 //Helper functions to deal with file I/O.
 
-/*jslint plusplus: false, strict: false */
+/*jslint plusplus: false, strict: true */
 /*global java: false, define: false */
 
 define('rhino/file', function () {
@@ -2973,6 +3000,35 @@ define('rhino/file', function () {
                 }
                 fileObj["delete"]();
             }
+        },
+
+        /**
+         * Deletes any empty directories under the given directory.
+         * The startDirIsJavaObject is private to this implementation's
+         * recursion needs.
+         */
+        deleteEmptyDirs: function (startDir, startDirIsJavaObject) {
+            var topDir = startDir,
+                dirFileArray, i, fileObj;
+
+            if (!startDirIsJavaObject) {
+                topDir = new java.io.File(startDir);
+            }
+
+            if (topDir.exists()) {
+                dirFileArray = topDir.listFiles();
+                for (i = 0; i < dirFileArray.length; i++) {
+                    fileObj = dirFileArray[i];
+                    if (fileObj.isDirectory()) {
+                        file.deleteEmptyDirs(fileObj, true);
+                    }
+                }
+
+                //If the directory is empty now, delete it.
+                if (topDir.listFiles().length === 0) {
+                    file.deleteFile(String(topDir.getPath()));
+                }
+            }
         }
     };
 
@@ -3135,14 +3191,12 @@ if(env === 'node') {
  * see: http://github.com/jrburke/requirejs for details
  */
 
-/*jslint */
-/*global define, process */
+/*jslint strict: false */
+/*global define: false, console: false */
 
-define('node/print', ['fs'], function (fs) {
-    'use strict';
+define('node/print', function () {
     function print(msg) {
-        fs.writeSync(process.stdout.fd, msg + '\n');
-        fs.fsyncSync(process.stdout.fd);
+        console.log(msg);
     }
 
     return print;
@@ -8031,7 +8085,8 @@ exports['ast_consolidate'] = function(oAbstractSyntaxTree) {
 /* End:                  */
 /* vim: set ft=javascript fenc=utf-8 et ts=2 sts=2 sw=2: */
 /* :mode=javascript:noTabs=true:tabSize=2:indentSize=2:deepIndent=true: */
-});define('uglifyjs/parse-js', ["exports"], function(exports) {
+});
+define('uglifyjs/parse-js', ["exports"], function(exports) {
 /***********************************************************************
 
   A JavaScript tokenizer / parser / beautifier / compressor.
@@ -9391,12 +9446,14 @@ exports.KEYWORDS = KEYWORDS;
 exports.ATOMIC_START_TOKEN = ATOMIC_START_TOKEN;
 exports.OPERATORS = OPERATORS;
 exports.is_alphanumeric_char = is_alphanumeric_char;
+exports.is_identifier_start = is_identifier_start;
+exports.is_identifier_char = is_identifier_char;
 exports.set_logger = function(logger) {
         warn = logger;
 };
-});define('uglifyjs/squeeze-more', ["require", "exports", "module", "./parse-js", "./process"], function(require, exports, module) {
-
-var jsp = require("./parse-js"),
+});
+define('uglifyjs/squeeze-more', ["require", "exports", "module", "./parse-js", "./process"], function(require, exports, module) {
+    var jsp = require("./parse-js"),
     pro = require("./process"),
     slice = jsp.slice,
     member = jsp.member,
@@ -9470,7 +9527,9 @@ function ast_squeeze_more(ast) {
 };
 
 exports.ast_squeeze_more = ast_squeeze_more;
-});define('uglifyjs/process', ["require", "exports", "module", "./parse-js", "./squeeze-more"], function(require, exports, module) {
+});
+define('uglifyjs/process', ["require", "exports", "module", "./parse-js", "./squeeze-more"], function(require, exports, module) {
+
 /***********************************************************************
 
   A JavaScript tokenizer / parser / beautifier / compressor.
@@ -9534,6 +9593,7 @@ exports.ast_squeeze_more = ast_squeeze_more;
 var jsp = require("./parse-js"),
     slice = jsp.slice,
     member = jsp.member,
+    is_identifier_char = jsp.is_identifier_char,
     PRECEDENCE = jsp.PRECEDENCE,
     OPERATORS = jsp.OPERATORS;
 
@@ -9982,7 +10042,13 @@ function ast_add_scope(ast) {
 
 function ast_mangle(ast, options) {
         var w = ast_walker(), walk = w.walk, scope;
-        options = options || {};
+        options = defaults(options, {
+                mangle       : true,
+                toplevel     : false,
+                defines      : null,
+                except       : null,
+                no_functions : false
+        });
 
         function get_mangled(name, newMangle) {
                 if (!options.mangle) return name;
@@ -10009,7 +10075,7 @@ function ast_mangle(ast, options) {
         };
 
         function _lambda(name, args, body) {
-                if (!options.no_functions) {
+                if (!options.no_functions && options.mangle) {
                         var is_defun = this[0] == "defun", extra;
                         if (name) {
                                 if (is_defun) name = get_mangled(name);
@@ -10709,6 +10775,9 @@ function ast_squeeze(ast, options) {
                 t = walk(t);
                 e = walk(e);
 
+                if (empty(e) && empty(t))
+                        return [ "stat", c ];
+
                 if (empty(t)) {
                         c = negate(c);
                         t = e;
@@ -10729,8 +10798,6 @@ function ast_squeeze(ast, options) {
                                 }
                         })();
                 }
-                if (empty(e) && empty(t))
-                        return [ "stat", c ];
                 var ret = [ "if", c, t, e ];
                 if (t[0] == "if" && empty(t[3]) && empty(e)) {
                         ret = best_of(ret, walk([ "if", [ "binary", "&&", c, t[1] ], t[2] ]));
@@ -10874,6 +10941,15 @@ function ast_squeeze(ast, options) {
                                 return expr[1];
                         }
                         return [ this[0], expr,  MAP(args, walk) ];
+                },
+                "num": function (num) {
+                        if (!isFinite(num))
+                                return [ "binary", "/", num === 1 / 0
+                                         ? [ "num", 1 ] : num === -1 / 0
+                                         ? [ "unary-prefix", "-", [ "num", 1 ] ]
+                                         : [ "num", 0 ], [ "num", 0 ] ];
+
+                        return [ this[0], num ];
                 }
         }, function() {
                 for (var i = 0; i < 2; ++i) {
@@ -10974,6 +11050,15 @@ function gen_code(ast, options) {
                 finally { indentation -= incr; }
         };
 
+        function last_char(str) {
+                str = str.toString();
+                return str.charAt(str.length - 1);
+        };
+
+        function first_char(str) {
+                return str.toString().charAt(0);
+        };
+
         function add_spaces(a) {
                 if (beautify)
                         return a.join(" ");
@@ -10982,7 +11067,8 @@ function gen_code(ast, options) {
                         var next = a[i + 1];
                         b.push(a[i]);
                         if (next &&
-                            ((/[a-z0-9_\x24]$/i.test(a[i].toString()) && /^[a-z0-9_\x24]/i.test(next.toString())) ||
+                            ((is_identifier_char(last_char(a[i])) && (is_identifier_char(first_char(next))
+                                                                      || first_char(next) == "\\")) ||
                              (/[\+\-]$/.test(a[i].toString()) && /^[\+\-]/.test(next.toString())))) {
                                 b.push(" ");
                         }
@@ -11042,7 +11128,7 @@ function gen_code(ast, options) {
         };
 
         function make_num(num) {
-                var str = num.toString(10), a = [ str.replace(/^0\./, ".") ], m;
+                var str = num.toString(10), a = [ str.replace(/^0\./, ".").replace('e+', 'e') ], m;
                 if (Math.floor(num) === num) {
                         if (num >= 0) {
                                 a.push("0x" + num.toString(16).toLowerCase(), // probably pointless
@@ -11535,7 +11621,8 @@ exports.MAP = MAP;
 
 // keep this last!
 exports.ast_squeeze_more = require("./squeeze-more").ast_squeeze_more;
-});define('uglifyjs/index', ["require", "exports", "module", "./parse-js", "./process", "./consolidator"], function(require, exports, module) {
+});
+define('uglifyjs/index', ["require", "exports", "module", "./parse-js", "./process", "./consolidator"], function(require, exports, module) {
 //convienence function(src, [options]);
 function uglify(orig_code, options){
   options || (options = {});
@@ -13510,7 +13597,13 @@ function (file,           pragma,   parse,   lang,   logger,   commonJs) {
         var layer,
             pluginBuilderRegExp = /(["']?)pluginBuilder(["']?)\s*[=\:]\s*["']([^'"\s]+)["']/,
             oldNewContext = require.s.newContext,
-            oldDef;
+            oldDef,
+
+            //create local undefined values for module and exports,
+            //so that when files are evaled in this function they do not
+            //see the node values used for r.js
+            exports,
+            module;
 
         //Stored cached file contents for reuse in other layers.
         require._cachedFileContents = {};
@@ -14402,6 +14495,12 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             });
         }
 
+        //If removeCombined in play, remove any empty directories that
+        //may now exist because of its use
+        if (config.removeCombined && !config.out && config.dir) {
+            file.deleteEmptyDirs(config.dir);
+        }
+
         //Do other optimizations.
         if (config.out && !config.cssIn) {
             //Just need to worry about one JS file.
@@ -14674,16 +14773,6 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
             }
         }
 
-        //Do not allow URLs for paths resources.
-        if (config.paths) {
-            for (prop in config.paths) {
-                if (config.paths.hasOwnProperty(prop)) {
-                    config.paths[prop] = build.makeAbsPath(config.paths[prop],
-                                              (config.baseUrl || absFilePath));
-                }
-            }
-        }
-
         build.makeAbsObject(["out", "cssIn"], config, absFilePath);
         build.makeAbsObject(["startFile", "endFile"], config.wrap, absFilePath);
     };
@@ -14818,6 +14907,12 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
         //args should take precedence over build file values.
         mixConfig(config, cfg);
 
+        //Fix paths to full paths so that they can be adjusted consistently
+        //lately to be in the output area.
+        lang.eachProp(config.paths, function (value, prop) {
+            config.paths[prop] = build.makeAbsPath(value, config.baseUrl);
+        });
+
         //Set final output dir
         if (config.hasOwnProperty("baseUrl")) {
             if (config.appDir) {
@@ -14831,6 +14926,14 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
         }
 
         //Check for errors in config
+        if (config.main) {
+            throw new Error('"main" passed as an option, but the ' +
+                            'supported option is called "name".');
+        }
+        if (!config.name && !config.modules && !config.include && !config.cssIn) {
+            throw new Error('Missing either a "name", "include" or "modules" ' +
+                            'option');
+        }
         if (config.cssIn && !config.out) {
             throw new Error("ERROR: 'out' option missing.");
         }
@@ -15053,7 +15156,7 @@ function (lang,   logger,   file,          parse,    optimize,   pragma,
         registry = context.registry;
         for (id in registry) {
             if (registry.hasOwnProperty(id) && id.indexOf('_@r') !== 0) {
-                if (id.indexOf('_unnormalized') === -1) {
+                if (id.indexOf('_unnormalized') === -1 && registry[id].enabled) {
                     errIds.push(id);
                     errUrl = registry[id].map.url;
 

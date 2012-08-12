@@ -1,6 +1,10 @@
 {
     "name": "cs",
     "description": "An AMD loader plugin for CoffeeScript",
+    "categories": [
+        "Loader plugins",
+        "Parsers & Compilers"
+    ],
     "version": "0.4.1",
     "dependencies": {
         "coffee-script": ">=1.2.0"

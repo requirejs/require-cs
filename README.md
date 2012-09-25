@@ -20,9 +20,15 @@ serve your .coffee files.
 ## Usage <a name="usage"></a>
 
 1) Download CoffeeScript for the browser that registers as an AMD module. You
-that by using a "raw" GitHub URL. It takes the form of:
+can do that by using a "raw" GitHub URL. It takes the form of:
 
     https://raw.github.com/jashkenas/coffee-script/[BRANCH-OR-VERSION]/extras/coffee-script.js
+
+Place this in the directory that is your
+[baseUrl](http://requirejs.org/docs/api.html#config-baseUrl) for your project,
+or set up a [paths config](http://requirejs.org/docs/api.html#config-paths)
+for it for the module ID `coffee-script`. The cs.js file specifies `coffee-script`
+as a dependency.
 
 Example links:
 

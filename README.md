@@ -24,16 +24,16 @@ can do that by using a "raw" GitHub URL. It takes the form of:
 
     https://raw.github.com/jashkenas/coffee-script/[BRANCH-OR-VERSION]/extras/coffee-script.js
 
+Example links:
+
+* [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
+* [1.3.3](https://raw.github.com/jashkenas/coffee-script/1.3.3/extras/coffee-script.js)
+
 Place this in the directory that is your
 [baseUrl](http://requirejs.org/docs/api.html#config-baseUrl) for your project,
 or set up a [paths config](http://requirejs.org/docs/api.html#config-paths)
 for it for the module ID `coffee-script`. The cs.js file specifies `coffee-script`
 as a dependency.
-
-Example links:
-
-* [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
-* [1.3.3](https://raw.github.com/jashkenas/coffee-script/1.3.3/extras/coffee-script.js)
 
 2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
 

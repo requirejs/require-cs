@@ -140,7 +140,8 @@ define(['coffee-script'], function (CoffeeScript) {
 
                 //IE with conditional comments on cannot handle the
                 //sourceURL trick, so skip it if enabled.
-                /*@if (@_jscript) @else @*/
+                /*@cc_on
+                @if (@_jscript) @else @*/
                 if (!config.isBuild) {
                     text += "\r\n//@ sourceURL=" + path;
                 }

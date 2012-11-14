@@ -55,7 +55,7 @@ define(['coffee-script'], function (CoffeeScript) {
 
         fetchText = function (url, callback) {
             var xhr = getXhr();
-            xhr.open('GET', url, true);
+            xhr.open('GET', url, requirejs.inlineRequire ? false : true);
             xhr.onreadystatechange = function (evt) {
                 //Do not explicitly handle errors, those should be
                 //visible via console output in the browser.

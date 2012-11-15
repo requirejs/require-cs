@@ -107,8 +107,27 @@ define(['coffee-script'], function (CoffeeScript) {
     }
 
     return {
+        //Other plugins might want to use our nice fetchText method
+        fetchText: fetchText,
+
         get: function () {
             return CoffeeScript;
+        },
+
+        normalize: function(name, normalize) {
+            //Since .coffee files can have the same root name (without 
+            //extension) as other files in the project that might be loaded
+            //with a different plugin, it's nice to re-write the name to
+            //include the .coffee extension so that it's obvious which
+            //version of the module this is
+            if (/\.coffee$/.test(name)) {
+                //RequireJS calls this method several times; if we hit this
+                //condition, we've already normalized name, so don't do it
+                //again.
+                return name;
+            }
+            //Use standard normalization and append .coffee
+            return normalize(name) + '.coffee';
         },
 
         write: function (pluginName, name, write) {
@@ -118,10 +137,10 @@ define(['coffee-script'], function (CoffeeScript) {
             }
         },
 
-        version: '0.4.2',
+        version: '0.4.3',
 
         load: function (name, parentRequire, load, config) {
-            var path = parentRequire.toUrl(name + '.coffee');
+            var path = parentRequire.toUrl(name);
             fetchText(path, function (text) {
 
                 //Do CoffeeScript transform.

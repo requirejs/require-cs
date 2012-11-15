@@ -133,6 +133,14 @@ define(['coffee-script'], function (CoffeeScript) {
         write: function (pluginName, name, write) {
             if (buildMap.hasOwnProperty(name)) {
                 var text = buildMap[name];
+                if (/\.coffee$/.test(name)) {
+                    //Trim off .coffee for writing back out the module name,
+                    //so that dependencies resolve correctly in the compiled
+                	//version.  Note that this still includes the pluginName,
+                	//so modules loaded with different plugins will still be
+                	//distinct.
+                    name = name.substring(0, name.length - 7);
+                }
                 write.asModule(pluginName + "!" + name, text);
             }
         },

@@ -8,7 +8,7 @@
 /*global define, window, XMLHttpRequest, importScripts, Packages, java,
   ActiveXObject, process, require */
 
-define(['coffee-script'], function (CoffeeScript) {
+define([], function () {
     'use strict';
     var fs, getXhr,
         progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
@@ -122,37 +122,39 @@ define(['coffee-script'], function (CoffeeScript) {
 
         load: function (name, parentRequire, load, config) {
             var path = parentRequire.toUrl(name + '.coffee');
-            fetchText(path, function (text) {
-
-                //Do CoffeeScript transform.
-                try {
-                  text = CoffeeScript.compile(text, config.CoffeeScript);
-                }
-                catch (err) {
-                  err.message = "In " + path + ", " + err.message;
-                  throw(err);
-                }
-
-                //Hold on to the transformed text if a build.
-                if (config.isBuild) {
-                    buildMap[name] = text;
-                }
-
-                //IE with conditional comments on cannot handle the
-                //sourceURL trick, so skip it if enabled.
-                /*@if (@_jscript) @else @*/
-                if (!config.isBuild) {
-                    text += "\r\n//@ sourceURL=" + path;
-                }
-                /*@end@*/
-
-                load.fromText(name, text);
-
-                //Give result to load. Need to wait until the module
-                //is fully parse, which will happen after this
-                //execution.
-                parentRequire([name], function (value) {
-                    load(value);
+            require(['coffee-script'], function(CoffeeScript) {
+                fetchText(path, function (text) {
+    
+                    //Do CoffeeScript transform.
+                    try {
+                      text = CoffeeScript.compile(text, config.CoffeeScript);
+                    }
+                    catch (err) {
+                      err.message = "In " + path + ", " + err.message;
+                      throw(err);
+                    }
+    
+                    //Hold on to the transformed text if a build.
+                    if (config.isBuild) {
+                        buildMap[name] = text;
+                    }
+    
+                    //IE with conditional comments on cannot handle the
+                    //sourceURL trick, so skip it if enabled.
+                    /*@if (@_jscript) @else @*/
+                    if (!config.isBuild) {
+                        text += "\r\n//@ sourceURL=" + path;
+                    }
+                    /*@end@*/
+    
+                    load.fromText(name, text);
+    
+                    //Give result to load. Need to wait until the module
+                    //is fully parse, which will happen after this
+                    //execution.
+                    parentRequire([name], function (value) {
+                        load(value);
+                    });
                 });
             });
         }

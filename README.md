@@ -64,6 +64,12 @@ to allow inlining of the translated JS content.
 The **demo** directory shows a complete web example. See the demo/index.html file
 as the entry point into the demo. It is not a fancy demo, just shows basic use.
 
+If you have node installed and need to run a web server to try out the demo,
+in this directory run `npm install send`, then start up the demo web server
+by running:
+
+    node demoserver.js
+
 # Optimizing <a name="optimizing"></a>
 
 See **demo/build.sh** for an example build script that drives the optimizer with

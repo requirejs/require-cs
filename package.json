@@ -11,7 +11,7 @@
     },
     "main": "cs.js",
     "volo": {
-        "url": "https://raw.github.com/jrburke/require-cs/{version}/cs.js",
+        "type": "directory",
         "dependencies": {
             "coffee-script": "jashkenas/coffee-script"
         }

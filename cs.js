@@ -61,16 +61,10 @@ define(['module'], function (module) {
 
         fetchText: fetchText,
 
-        write: function (pluginName, name, write) {
-            if (buildMap.hasOwnProperty(name)) {
-                var text = buildMap[name];
-                write.asModule(pluginName + "!" + name, text);
-            }
-        },
-
         version: '0.4.3',
 
         load: function (name, parentRequire, load, config) {
+            console.log('cs loading ' + name);
             require(['coffee-script'], function(CoffeeScript) {
                 var path = parentRequire.toUrl(name + '.coffee');
                 fetchText(path, function (text) {
@@ -83,17 +77,10 @@ define(['module'], function (module) {
                         throw err;
                     }
 
-                    //Hold on to the transformed text if a build.
-                    if (config.isBuild) {
-                        buildMap[name] = text;
-                    }
-
                     //IE with conditional comments on cannot handle the
                     //sourceURL trick, so skip it if enabled.
                     /*@if (@_jscript) @else @*/
-                    if (!config.isBuild) {
-                        text += "\r\n//@ sourceURL=" + path;
-                    }
+                    text += "\r\n//@ sourceURL=" + path;
                     /*@end@*/
 
                     load.fromText(module.id + '!' + name, text);
@@ -101,7 +88,7 @@ define(['module'], function (module) {
                     //Give result to load. Need to wait until the module
                     //is fully parse, which will happen after this
                     //execution.
-                    parentRequire([name], function (value) {
+                    parentRequire([module.id + '!' + name], function (value) {
                         load(value);
                     });
                 });

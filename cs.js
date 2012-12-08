@@ -8,14 +8,13 @@
 /*global define, window, XMLHttpRequest, importScripts, Packages, java,
   ActiveXObject, process, require */
 
-define(function () {
+define(['module'], function (module) {
     'use strict';
-    var fs, getXhr,
+    var getXhr,
         progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'],
         fetchText = function () {
             throw new Error('Environment unsupported.');
-        },
-        buildMap = {};
+        };
 
     // Browser action
     getXhr = function () {
@@ -58,6 +57,8 @@ define(function () {
     };
 
     return {
+        pluginBuilder: './cs-builder',
+
         fetchText: fetchText,
 
         write: function (pluginName, name, write) {
@@ -70,7 +71,7 @@ define(function () {
         version: '0.4.3',
 
         load: function (name, parentRequire, load, config) {
-            require(['coffeescript'], function(CoffeeScript) {
+            require(['coffee-script'], function(CoffeeScript) {
                 var path = parentRequire.toUrl(name + '.coffee');
                 fetchText(path, function (text) {
 
@@ -95,7 +96,7 @@ define(function () {
                     }
                     /*@end@*/
 
-                    load.fromText(name, text);
+                    load.fromText(module.id + '!' + name, text);
 
                     //Give result to load. Need to wait until the module
                     //is fully parse, which will happen after this

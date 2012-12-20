@@ -54,21 +54,25 @@ define(['coffee-script'], function (CoffeeScript) {
         };
 
         fetchText = function (url, callback, errback) {
-            try {
-              var xhr = getXhr();
-              xhr.open('GET', url, true);
-              xhr.onreadystatechange = function (evt) {
-                  //Do not explicitly handle errors, those should be
-                  //visible via console output in the browser.
-                  if (xhr.readyState === 4) {
-                      callback(xhr.responseText);
-                  }
-              };
-              xhr.send(null);
-            }
-            catch (err) {
-              errback(err);
-            }
+            var xhr = getXhr();
+            xhr.open('GET', url, true);
+            xhr.onreadystatechange = function (evt) {
+                var status, err;
+                //Do not explicitly handle errors, those should be
+                //visible via console output in the browser.
+                if (xhr.readyState === 4) {
+                    status = xhr.status;
+                    if ((status > 399 && status < 600) || status == 0) {
+                        //An http 4xx or 5xx error. Signal an error.
+                        err = new Error(url + ' HTTP status: ' + status);
+                        err.xhr = xhr;
+                        errback(err);
+                    } else {
+                        callback(xhr.responseText);
+                    }
+                }
+            };
+            xhr.send(null);
         };
         // end browser.js adapters
     } else if (typeof Packages !== 'undefined') {
@@ -163,12 +167,9 @@ define(['coffee-script'], function (CoffeeScript) {
                     load(value);
                 });
             }, function (err) {
-              if (load.error) {
-                load.error(err);
-              }
-              else {
-                throw err;
-              }
+                if (load.error) {
+                    load.error(err);
+                }
             });
         }
     };

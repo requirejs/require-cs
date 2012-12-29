@@ -53,14 +53,23 @@ define(['coffee-script'], function (CoffeeScript) {
             return xhr;
         };
 
-        fetchText = function (url, callback) {
+        fetchText = function (url, callback, errback) {
             var xhr = getXhr();
             xhr.open('GET', url, true);
             xhr.onreadystatechange = function (evt) {
+                var status, err;
                 //Do not explicitly handle errors, those should be
                 //visible via console output in the browser.
                 if (xhr.readyState === 4) {
-                    callback(xhr.responseText);
+                    status = xhr.status;
+                    if ((status > 399 && status < 600)) {
+                        //An http 4xx or 5xx error. Signal an error.
+                        err = new Error(url + ' HTTP status: ' + status);
+                        err.xhr = xhr;
+                        errback(err);
+                    } else {
+                        callback(xhr.responseText);
+                    }
                 }
             };
             xhr.send(null);
@@ -68,7 +77,7 @@ define(['coffee-script'], function (CoffeeScript) {
         // end browser.js adapters
     } else if (typeof Packages !== 'undefined') {
         //Why Java, why is this so awkward?
-        fetchText = function (path, callback) {
+        fetchText = function (path, callback, errback) {
             var stringBuffer, line,
                 encoding = "utf-8",
                 file = new java.io.File(path),
@@ -99,10 +108,12 @@ define(['coffee-script'], function (CoffeeScript) {
                 }
                 //Make sure we return a JavaScript string and not a Java string.
                 content = String(stringBuffer.toString()); //String
+            } catch (err) {
+                errback(err);
             } finally {
                 input.close();
+                callback(content);
             }
-            callback(content);
         };
     }
 
@@ -155,6 +166,10 @@ define(['coffee-script'], function (CoffeeScript) {
                 parentRequire([name], function (value) {
                     load(value);
                 });
+            }, function (err) {
+                if (load.error) {
+                    load.error(err);
+                }
             });
         }
     };

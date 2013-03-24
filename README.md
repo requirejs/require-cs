@@ -55,6 +55,25 @@ If you are using define() in a module written with CoffeeScript:
     define ['cs!util'], (util) ->
         util.doSomething
 
+[Literate CoffeeScript](http://coffeescript.org/#literate) was introduced in CoffeeScript 1.5.0.
+To utilize this feature with this plugin you will need to have downloaded >= 1.5.0
+of CoffeeScript and qualify the file (with extension) of the literate module you wish to use.
+
+A dependency on the literate module `app.litcoffee`:
+
+    require ['cs!app.litcoffee'], (litapp) ->
+      litapp.foo()
+      # ...
+
+Or a dependency on the literate module `util.coffee.md`:
+
+    define ['cs!util.coffee.md'], (litutil) ->
+      litutil.doSomething()
+      # ...
+
+Note: This plugin supports a mixture of literate and regular CoffeeScript files in the
+same project.
+
 **VERY IMPORTANT**: Only define anonymous modules using CoffeeScript. Otherwise,
 the optimization work will not happen correctly -- the name of the module is changed
 to allow inlining of the translated JS content.

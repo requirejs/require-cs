@@ -123,12 +123,17 @@ define(['coffee-script'], function (CoffeeScript) {
         version: '0.4.3',
 
         load: function (name, parentRequire, load, config) {
-            var path = parentRequire.toUrl(name + '.coffee');
+            // preserve existing logic with new literate coffeescript extensions (*.litcoffee or *.coffee.md).
+            // if name passes check, use it, as-is. otherwise, behave as before, appending .coffee to the
+            // requirejs binding.
+            var path = parentRequire.toUrl(/\.((lit)?coffee|coffee\.md)$/.test(name) ? name : name + '.coffee');
             fetchText(path, function (text) {
-
+                // preserve existing logic. integrate new 'literate' compile flag with any requirejs configs.
+                var opts = config.CoffeeScript || {};
+                opts.literate = /\.(litcoffee|coffee\.md)$/.test(path);
                 //Do CoffeeScript transform.
                 try {
-                    text = CoffeeScript.compile(text, config.CoffeeScript);
+                    text = CoffeeScript.compile(text, opts);
                 } catch (err) {
                     err.message = "In " + path + ", " + err.message;
                     throw err;

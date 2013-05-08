@@ -18,35 +18,40 @@ restrictions on using XMLHttpRequest from local file URLs, so use a web server t
 serve your .coffee files.
 
 ## Usage <a name="usage"></a>
-1. Install via bower
-```bower install require-cs```
+1. Install via bower ```bower install require-cs```
 
-2. Configure 'cs!' loader via map
+2. Configure requirejs loader plugin via map:
 ```javascript
-require.config({
-  "map": {
-    "*": {
-      "cs": "components/require-cs/cs"
-    }
-  }
-});```
+	require.config({
+		"map": {
+			"*": {
+				"cs": "components/require-cs/cs"
+			}
+		}
+	});
+```
+
 3. Reference CoffeeScript files via the cs! plugin name. For example, to load
 the `app.coffee` file that is in your baseUrl directory:
+```javascript
+	require(['cs!app'], function (app) {
 
-    require(['cs!app'], function (app) {
-
-    });
+	});
+```
 
 Or, if creating a module that depends on `util.coffee`:
-
-    define(['cs!util'], function (util) {
-        util.doSomething();
-    });
+```javascript
+	define(['cs!util'], function (util) {
+		util.doSomething();
+	});
+```
 
 If you are using define() in a module written with CoffeeScript:
 
-    define ['cs!util'], (util) ->
-        util.doSomething
+```coffeescript
+	define ['cs!util'], (util) ->
+		util.doSomething
+```
 
 [Literate CoffeeScript](http://coffeescript.org/#literate) was introduced in CoffeeScript 1.5.0.
 To utilize this feature with this plugin you will need to have downloaded >= 1.5.0

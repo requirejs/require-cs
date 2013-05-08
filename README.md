@@ -18,8 +18,6 @@ restrictions on using XMLHttpRequest from local file URLs, so use a web server t
 serve your .coffee files.
 
 ## Usage <a name="usage"></a>
-
-### With bower, requirejs
 1. Install via bower
 ```bower install require-cs```
 

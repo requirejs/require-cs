@@ -21,7 +21,7 @@ serve your .coffee files.
 
 ### With bower, requirejs
 1. Install via bower
-```bower install require-stylus```
+```bower install require-cs```
 
 2. Configure 'cs!' loader via map
 ```javascript

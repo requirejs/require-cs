@@ -5,7 +5,7 @@ that may work with module loaders like [RequireJS](http://requirejs.org),
 [curl](https://github.com/unscriptable/curl) and
 [backdraft](http://bdframework.org/bdLoad/docs/bdLoad-tutorial/bdLoad-tutorial.html).
 
-It is known to work with RequireJS 1.0+.
+It is known to work with RequireJS 1.0+, 2.x+.
 
 This loader plugin makes it easy to write your JS functionality in CoffeeScript,
 and easily use it in the browser, Node or Rhino. Plus, if you use the RequireJS
@@ -19,25 +19,20 @@ serve your .coffee files.
 
 ## Usage <a name="usage"></a>
 
-1) Download CoffeeScript for the browser that registers as an AMD module. You
-can do that by using a "raw" GitHub URL. It takes the form of:
+### With bower, requirejs
+1. Install via bower
+```bower install require-stylus```
 
-    https://raw.github.com/jashkenas/coffee-script/[BRANCH-OR-VERSION]/extras/coffee-script.js
-
-Example links:
-
-* [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
-* [1.3.3](https://raw.github.com/jashkenas/coffee-script/1.3.3/extras/coffee-script.js)
-
-Place this in the directory that is your
-[baseUrl](http://requirejs.org/docs/api.html#config-baseUrl) for your project,
-or set up a [paths config](http://requirejs.org/docs/api.html#config-paths)
-for it for the module ID `coffee-script`. The cs.js file specifies `coffee-script`
-as a dependency.
-
-2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
-
-3) Reference CoffeeScript files via the cs! plugin name. For example, to load
+2. Configure 'cs!' loader via map
+```javascript
+require.config({
+  "map": {
+    "*": {
+      "cs": "components/require-cs/cs"
+    }
+  }
+});```
+3. Reference CoffeeScript files via the cs! plugin name. For example, to load
 the `app.coffee` file that is in your baseUrl directory:
 
     require(['cs!app'], function (app) {

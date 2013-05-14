@@ -5,7 +5,7 @@
         "Loader plugins",
         "Parsers & Compilers"
     ],
-    "version": "0.4.3",
+    "version": "0.4.4",
     "dependencies": {
         "coffee-script": ">=1.2.0"
     },

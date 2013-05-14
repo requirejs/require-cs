@@ -17,7 +17,45 @@ fetch files that are on the same domain as the HTML page, and most browsers plac
 restrictions on using XMLHttpRequest from local file URLs, so use a web server to
 serve your .coffee files.
 
-## Usage <a name="usage"></a>
+## Install <a name="install"></a>
+
+### Volo
+
+To install with [Volo](http://volojs.org):
+
+```
+  volo add require-cs
+```
+
+This will install `cs.js` and `coffee-script.js` into the baseUrl folder, and no further configuration is necessary.
+
+### Bower
+
+To install with [Bower](http://bower.io/):
+
+```
+  bower install require-cs
+```
+
+Since bower installs `require-cs` and `require-coffee` into separate folders, add the following RequireJS [package configuration](http://requirejs.org/docs/api.html#packages):
+
+```javascript
+{
+  packages: [
+  {
+    name: 'cs',
+    location: 'require-cs',
+    main: 'cs'
+  },
+  {
+    name: 'coffee-script',
+    main: 'index'
+  }
+  ]
+}
+```
+
+### Manual Download
 
 1) Download CoffeeScript for the browser that registers as an AMD module. You
 can do that by using a "raw" GitHub URL. It takes the form of:
@@ -37,7 +75,9 @@ as a dependency.
 
 2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
 
-3) Reference CoffeeScript files via the cs! plugin name. For example, to load
+## Usage <a name="usage".</a>
+
+Reference CoffeeScript files via the cs! plugin name. For example, to load
 the `app.coffee` file that is in your baseUrl directory:
 
     require(['cs!app'], function (app) {

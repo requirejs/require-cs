@@ -283,12 +283,12 @@ define(['coffee-script'], function (CoffeeScript) {
 
                 //Do CoffeeScript transform.
                 try {
-                    compiled = CoffeeScript.compile(text, opts);
+                    text = CoffeeScript.compile(text, opts);
                 } catch (err) {
                     err.message = "In " + path + ", " + err.message;
                     throw err;
                 }
-                text = compiled.js + '\n//@ sourceMappingURL=data:application/json;base64,' + Base64.encode(compiled.v3SourceMap || '') + '\n//@ sourceURL=' + path;
+                text = text.js + '\n//@ sourceMappingURL=data:application/json;base64,' + Base64.encode(text.v3SourceMap || '') + '\n//@ sourceURL=' + path;
 
                 //Hold on to the transformed text if a build.
                 if (config.isBuild) {

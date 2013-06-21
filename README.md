@@ -37,7 +37,7 @@ To install with [Bower](http://bower.io/):
   bower install require-cs
 ```
 
-Since bower installs `require-cs` and `require-coffee` into separate folders, add the following RequireJS [package configuration](http://requirejs.org/docs/api.html#packages):
+Since bower installs `require-cs` and `coffee-script` into separate folders, add the following RequireJS [package configuration](http://requirejs.org/docs/api.html#packages):
 
 ```javascript
 {

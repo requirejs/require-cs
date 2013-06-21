@@ -268,11 +268,12 @@ define(['coffee-script'], function (CoffeeScript) {
             // preserve existing logic with new literate coffeescript extensions (*.litcoffee or *.coffee.md).
             // if name passes check, use it, as-is. otherwise, behave as before, appending .coffee to the
             // requirejs binding.
-            var path = parentRequire.toUrl(/\.((lit)?coffee|coffee\.md)$/.test(name) ? name : name + '.coffee');
+            var fullName = CoffeeScript.helpers.isCoffee(name) ? name : name + '.coffee';
+            var path = parentRequire.toUrl(fullName);
             fetchText(path, function (text) {
                 // preserve existing logic. integrate new 'literate' compile flag with any requirejs configs.
                 var opts = config.CoffeeScript || {};
-                opts.literate = /\.(litcoffee|coffee\.md)$/.test(path);
+                opts.literate = CoffeeScript.helpers.isLiterate(fullName);
                 opts.sourceMap = true;
                 opts.header = true;
                 opts.inline = true;
@@ -280,7 +281,6 @@ define(['coffee-script'], function (CoffeeScript) {
                 opts.generatedFile = name+'.coffee';
 
                 var compiled;
-
                 //Do CoffeeScript transform.
                 try {
                     text = CoffeeScript.compile(text, opts);

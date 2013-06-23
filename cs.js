@@ -277,8 +277,8 @@ define(['coffee-script'], function (CoffeeScript) {
                 opts.sourceMap = true;
                 opts.header = true;
                 opts.inline = true;
-                opts.sourceFiles = [name+'.coffee'];
-                opts.generatedFile = name+'.coffee';
+                opts.sourceFiles = [name + opts.literate ? '' : '.coffee'];
+                opts.generatedFile = name + opts.literate ? '' : '.coffee';
 
                 var compiled;
                 //Do CoffeeScript transform.
@@ -288,19 +288,19 @@ define(['coffee-script'], function (CoffeeScript) {
                     err.message = "In " + path + ", " + err.message;
                     throw err;
                 }
-                text = text.js + '\n//@ sourceMappingURL=data:application/json;base64,' + Base64.encode(text.v3SourceMap || '') + '\n//@ sourceURL=' + path;
+                text = text.js;
+
+                //IE with conditional comments on cannot handle the
+                //sourceURL trick, so skip it if enabled.
+                /*@if (@_jscript) @else @*/
+                text += '\n//# sourceMappingURL=data:application/json;base64,' + Base64.encode(text.v3SourceMap || '') + '\n//# sourceURL=' + path;
+                /*@end@*/
 
                 //Hold on to the transformed text if a build.
                 if (config.isBuild) {
                     buildMap[name] = text;
                 }
-                //IE with conditional comments on cannot handle the
-                //sourceURL trick, so skip it if enabled.
-                /*@if (@_jscript) @else @*/
-                if (!config.isBuild) {
-                    text += "\r\n//@ sourceURL=" + path;
-                }
-                /*@end@*/
+                
                 load.fromText(name, text);
 
                 //Give result to load. Need to wait until the module

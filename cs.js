@@ -283,17 +283,19 @@ define(['coffee-script'], function (CoffeeScript) {
                 var compiled;
                 //Do CoffeeScript transform.
                 try {
-                    text = CoffeeScript.compile(text, opts);
+                    compiled = CoffeeScript.compile(text, opts);
                 } catch (err) {
                     err.message = "In " + path + ", " + err.message;
                     throw err;
                 }
-                text = text.js;
+                text = compiled.js;
 
                 //IE with conditional comments on cannot handle the
                 //sourceURL trick, so skip it if enabled.
                 /*@if (@_jscript) @else @*/
-                text += '\n//# sourceMappingURL=data:application/json;base64,' + Base64.encode(text.v3SourceMap || '') + '\n//# sourceURL=' + path;
+                if (!config.isBuild) {
+                    text += '\n//# sourceMappingURL=data:application/json;base64,' + Base64.encode(compiled.v3SourceMap || '') + '\n//# sourceURL=' + path;
+                }
                 /*@end@*/
 
                 //Hold on to the transformed text if a build.

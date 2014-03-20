@@ -277,8 +277,9 @@ define(['coffee-script'], function (CoffeeScript) {
                 opts.sourceMap = true;
                 opts.header = true;
                 opts.inline = true;
-                opts.sourceFiles = [name + opts.literate ? '' : '.coffee'];
-                opts.generatedFile = name + opts.literate ? '' : '.coffee';
+                opts.filename = fullName;
+                opts.sourceFiles = [name + (opts.literate ? '' : '.coffee')];
+                opts.generatedFile = name + (opts.literate ? '' : '.coffee');
 
                 var compiled;
                 //Do CoffeeScript transform.

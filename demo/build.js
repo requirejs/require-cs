@@ -12,7 +12,7 @@
 
     paths: {
         'cs' :'../../cs',
-        'coffee-script': '../../coffee-script'
+        'coffee-script': '../../bower_components/coffeescript/extras/coffee-script'
     },
 
     modules: [

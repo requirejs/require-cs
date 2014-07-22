@@ -1,9 +1,9 @@
 {
   "name": "require-cs",
   "description": "An AMD loader plugin for CoffeeScript",
-  "version": "0.4.4",
+  "version": "0.5.0",
   "dependencies": {
-    "coffee-script": "https://raw.github.com/jashkenas/coffee-script/1.6.2/extras/coffee-script.js"
+    "coffeescript": "~1.7.1"
   },
   "ignore": [
     "demo",

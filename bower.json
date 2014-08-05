@@ -2,6 +2,7 @@
   "name": "require-cs",
   "description": "An AMD loader plugin for CoffeeScript",
   "version": "0.5.0",
+  "main": "cs.js",
   "dependencies": {
     "coffeescript": "~1.7.1"
   },

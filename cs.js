@@ -300,10 +300,9 @@ define(['coffee-script'], function (CoffeeScript) {
                         else {
                             err.message += '-' + (loc.last_line + 1);
                         }
-
                     }
 
-                    err.message += ": " + msg;
+                    err.message += ': ' + msg;
                     throw err;
                 }
                 text = compiled.js;

@@ -41,16 +41,18 @@ Since bower installs `require-cs` and `coffee-script` into separate folders, add
 
 ```javascript
 {
+  baseUrl: '..path_to_packages..'
   packages: [
-  {
-    name: 'cs',
-    location: 'require-cs',
-    main: 'cs'
-  },
-  {
-    name: 'coffee-script',
-    main: 'index'
-  }
+    {
+      name: 'cs',
+      location: 'require-cs',
+      main: 'cs'
+    },
+    {
+      name: 'coffee-script',
+      location: 'coffeescript',
+      main: 'extras/coffee-script'
+    }
   ]
 }
 ```
@@ -65,7 +67,7 @@ can do that by using a "raw" GitHub URL. It takes the form of:
 Example links:
 
 * [master](https://raw.github.com/jashkenas/coffee-script/master/extras/coffee-script.js)
-* [1.3.3](https://raw.github.com/jashkenas/coffee-script/1.3.3/extras/coffee-script.js)
+* [1.8.0](https://raw.github.com/jashkenas/coffee-script/1.8.0/extras/coffee-script.js)
 
 Place this in the directory that is your
 [baseUrl](http://requirejs.org/docs/api.html#config-baseUrl) for your project,

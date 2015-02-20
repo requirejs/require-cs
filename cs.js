@@ -321,13 +321,6 @@ define(['coffee-script'], function (CoffeeScript) {
                 }
                 
                 load.fromText(name, text);
-
-                //Give result to load. Need to wait until the module
-                //is fully parse, which will happen after this
-                //execution.
-                parentRequire([name], function (value) {
-                    load(value);
-                });
             });
         }
     };

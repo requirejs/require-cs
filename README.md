@@ -148,4 +148,4 @@ file so that they will be included in the build.
 
 ## License <a name="license"></a>
 
-Available via the MIT or new BSD license.
+Available via the MIT or new license.

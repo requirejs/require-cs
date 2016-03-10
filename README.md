@@ -146,6 +146,10 @@ If you want to do dynamic loading of CoffeeScript files after a build, then
 comment out `stubModules: ['cs']` and `exclude: ['coffee-script']` from the build
 file so that they will be included in the build.
 
-## License <a name="license"></a>
+## License
 
-Available via the MIT or new license.
+MIT
+
+## Code of Conduct
+
+[jQuery Foundation Code of Conduct](https://jquery.org/conduct/).

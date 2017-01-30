@@ -283,24 +283,23 @@ define(['coffee-script'], function (CoffeeScript) {
                 try {
                     compiled = CoffeeScript.compile(text, opts);
                 } catch (err) {
-                    var msg = err.message;
+                    var msg;
                     var loc = err.location;
-                    err.message = path;
-
-                    if(loc.first_line === loc.last_line) {
-                        err.message += ', line ' + (loc.first_line + 1);
-                    }
-                    else {
-                        err.message += ', lines ' + (loc.first_line + 1);
+                    
+                    msg = "In (" + path;
+                    msg += ":" + (loc.first_line + 1) + ":" + (loc.first_column + 1);
+                    
+                    if (loc.first_line !== loc.last_line) {
                         if(isNaN(loc.last_line)) {
-                            err.message += '+';
-                        }
-                        else {
-                            err.message += '-' + (loc.last_line + 1);
+                            msg += '+';
+                        } else {
+                            msg += '-' + (loc.last_line + 1) + ":" + (loc.last_column + 1);
                         }
                     }
-
-                    err.message += ': ' + msg;
+                    msg += "): ";
+                    
+                    err.message = msg + err.message;
+                    
                     throw err;
                 }
                 text = compiled.js;

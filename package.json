@@ -18,6 +18,6 @@
   },
   "devDependencies": {
     "requirejs": "^2.1.4",
-    "send": "^0.11.1"
+    "send": "^0.16.2"
   }
 }

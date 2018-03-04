@@ -77,7 +77,7 @@ as a dependency.
 
 2) Download the [latest version of cs.js](https://raw.github.com/jrburke/require-cs/latest/cs.js).
 
-## Usage <a name="usage".</a>
+## Usage <a name="usage"></a>
 
 Reference CoffeeScript files via the cs! plugin name. For example, to load
 the `app.coffee` file that is in your baseUrl directory:
@@ -117,7 +117,7 @@ Note: This plugin supports a mixture of literate and regular CoffeeScript files 
 same project.
 
 **VERY IMPORTANT**: Only define anonymous modules using CoffeeScript. Otherwise,
-the optimization work will not happen correctly -- the name of the module is changed
+the optimization work will not happen correctly — the name of the module is changed
 to allow inlining of the translated JS content.
 
 ## Complete web project <a name="demo"></a>
